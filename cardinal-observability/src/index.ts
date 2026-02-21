@@ -86,6 +86,14 @@ const createFallbackTraceId = (): string => {
   return `trace-${Date.now()}-${seed}`
 }
 
+const readRuntimeEnv = (key: string): string | undefined => {
+  if (typeof process === 'undefined') {
+    return undefined
+  }
+
+  return process.env[key]
+}
+
 export const createTraceId = (): string => {
   const runtimeCrypto = globalThis.crypto
   if (runtimeCrypto && typeof runtimeCrypto.randomUUID === 'function') {
@@ -98,11 +106,11 @@ export const createTraceId = (): string => {
 export const createWideEventLogger = (options: LoggerOptions): WideEventLogger => {
   const minimum = options.minLevel || 'info'
   const baseContext = {
-    environment: options.environment || process.env.NODE_ENV || 'development',
+    environment: options.environment || readRuntimeEnv('NODE_ENV') || 'development',
     ...(options.context || {}),
   }
 
-  const enabled = options.enabled ?? process.env.CARDINAL_LOG_SILENT !== '1'
+  const enabled = options.enabled ?? readRuntimeEnv('CARDINAL_LOG_SILENT') !== '1'
   const sink = options.sink || defaultSink
 
   const shouldEmit = (level: WideEventLevel): boolean =>

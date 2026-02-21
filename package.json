@@ -10,7 +10,7 @@
     "cardinal-observability"
   ],
   "scripts": {
-    "dev": "concurrently -n api,web,diff -c blue,green,magenta \"cd server && bun run dev\" \"cd client && bun run dev\" \"cd cardinal-diff && bun run dev\"",
+    "dev": "bunx concurrently --kill-others-on-fail -n api,web,diff -c blue,green,magenta \"cd server && bun run dev\" \"cd client && bun run dev\" \"cd cardinal-diff && bun run dev\"",
     "dev:server": "cd server && bun run dev",
     "dev:client": "cd client && bun run dev",
     "dev:diff": "cd cardinal-diff && bun run dev",
