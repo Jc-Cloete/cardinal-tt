@@ -3,3 +3,5 @@ node_modules/
 rollout-*.jsonl
 client/dist/
 *.sqlite
+.cache/sessions-cache.sqlite-shm
+.cache/sessions-cache.sqlite-wal

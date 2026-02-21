@@ -4,6 +4,7 @@ import {ExplorerControls} from './components/ExplorerControls'
 import {PreviewModal} from './components/PreviewModal'
 import {ThemeToggle} from './components/ThemeToggle'
 import {TimelinePanel} from './components/TimelinePanel'
+import {CardinalDiffPanel} from './features/cardinal/CardinalDiffPanel'
 import {useConversationExplorer} from './hooks/useConversationExplorer'
 import type {SessionFile} from './types'
 import {getProjectDisplayName} from './utils/display'
@@ -110,6 +111,8 @@ export default function App() {
         activeFile={activeFile}
         onSelectFile={setActiveFile}
       />
+
+      <CardinalDiffPanel />
 
       <PreviewModal
         isOpen={Boolean(activeFile)}

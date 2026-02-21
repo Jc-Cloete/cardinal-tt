@@ -28,6 +28,7 @@ You can also run each workspace directly:
 ```bash
 bun run dev:server
 bun run dev:client
+bun run dev:diff
 ```
 
 Frontend runs at `http://localhost:5173`, API at `http://localhost:4000`.
@@ -40,6 +41,42 @@ Run type checks:
 
 ```bash
 bun run typecheck
+```
+
+## Cardinal Diff workspace
+
+`cardinal-diff` is a separate Bun workspace in this monorepo that tracks local project file changes and writes immutable commit/event records into SQLite (`CACHE_DB_PATH`).
+
+Default storage layout:
+
+- `~/.cardinal-diff/config.json`
+- `~/.cardinal-diff/projects/*.json`
+- `~/.cardinal-diff/index/cardinaldiff.sqlite` (default when no legacy DB exists)
+- `~/.cardinal-diff/objects/**` (Mode B content blobs)
+- `~/.cardinal-diff/logs/*`
+
+CLI examples:
+
+```bash
+cd cardinal-diff
+bun run start projects list
+bun run start projects add --path /Users/you/code/some-project --name some-project --mode metadata --hash-policy off
+bun run start commits list --project <project_id> --limit 50
+bun run start commit show <commit_id>
+bun run start file history --project <project_id> --path src/index.ts
+bun run start diff --project <project_id> --from <commit_id> --to <commit_id> --path src/index.ts
+bun run start doctor --project <project_id>
+bun run start agent run
+```
+
+LaunchAgent helpers:
+
+```bash
+cd cardinal-diff
+bun run start agent install
+bun run start agent uninstall
+bun run agent:install
+bun run agent:uninstall
 ```
 
 ## Configure data root
@@ -61,6 +98,11 @@ export CONVERSATION_BREAK_LIMIT=10
 - `GET /api/projects?year=YYYY&month=MM&day=DD`
 - `GET /api/files?year=YYYY&month=MM&day=DD&project=DIR&conversation_break_limit=MINUTES`
 - `GET /api/file?year=YYYY&month=MM&day=DD&file=FILENAME`
+- `GET /api/cardinal/projects`
+- `GET /api/cardinal/commits?project_id=<optional>&limit=100&since_ns=<optional>&until_ns=<optional>`
+- `GET /api/cardinal/commit/:commitId`
+- `GET /api/cardinal/file-history?project_id=<id>&rel_path=<path>&limit=200`
+- `GET /api/cardinal/diff?project_id=<id>&from_commit_id=<id>&to_commit_id=<id>&rel_path=<optional>`
 
 `/api/root` includes:
 - `conversation_break_limit`: default minutes used by the backend when query override is absent

@@ -17,6 +17,13 @@ const codexSessionsRoot = path.join(process.env.HOME || '', '.codex', 'sessions'
 const defaultRoot = fs.existsSync(codexSessionsRoot) ? codexSessionsRoot : workspaceRoot
 
 export const dataRoot = path.resolve(process.env.DATA_ROOT || defaultRoot)
+const specCacheDbPath = path.join(process.env.HOME || '', '.cardinal-diff', 'index', 'cardinaldiff.sqlite')
+const legacyCacheDbPath = path.join(workspaceRoot, '.cache', 'sessions-cache.sqlite')
+const defaultCacheDbPath = fs.existsSync(specCacheDbPath)
+  ? specCacheDbPath
+  : fs.existsSync(legacyCacheDbPath)
+    ? legacyCacheDbPath
+    : specCacheDbPath
 export const cacheDbPath = path.resolve(
-  process.env.CACHE_DB_PATH || path.join(workspaceRoot, '.cache', 'sessions-cache.sqlite'),
+  process.env.CACHE_DB_PATH || defaultCacheDbPath,
 )

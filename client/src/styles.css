@@ -235,3 +235,61 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.cardinal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.cardinal-column {
+  display: grid;
+  gap: 6px;
+}
+
+.cardinal-scroll {
+  max-height: 360px;
+}
+
+.cardinal-list {
+  display: grid;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.cardinal-commit-item,
+.cardinal-entry-item {
+  border: 1px solid var(--gray-6);
+  border-radius: 8px;
+  background: var(--gray-2);
+  padding: 8px;
+}
+
+.cardinal-commit-item {
+  appearance: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cardinal-commit-item.active,
+.cardinal-commit-item:hover {
+  background: var(--cyan-4);
+  border-color: var(--cyan-8);
+}
+
+.cardinal-commit-item small {
+  color: var(--gray-10);
+}
+
+.cardinal-commit-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 900px) {
+  .cardinal-grid {
+    grid-template-columns: 1fr;
+  }
+}

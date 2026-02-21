@@ -1,0 +1,24 @@
+{
+  "name": "cardinal-diff",
+  "private": true,
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "bun --watch index.ts agent run",
+    "start": "bun run index.ts",
+    "typecheck": "bunx tsc --noEmit",
+    "doctor": "bun run index.ts doctor",
+    "agent:install": "./scripts/install-launch-agent.sh",
+    "agent:uninstall": "./scripts/uninstall-launch-agent.sh"
+  },
+  "dependencies": {
+    "diff": "^8.0.3",
+    "fsevents": "^2.3.3",
+    "minimatch": "^10.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "bun-types": "^1.3.0",
+    "typescript": "^5.6.3"
+  }
+}
