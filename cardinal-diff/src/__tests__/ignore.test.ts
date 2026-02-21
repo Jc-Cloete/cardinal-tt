@@ -3,7 +3,12 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { DEFAULT_IGNORE_PATTERNS } from '../defaults'
-import { isIgnoredPath, loadProjectIgnoreRules } from '../ignore'
+import {
+  isIgnoredByGitIgnoreRules,
+  isIgnoredPath,
+  loadGitIgnoreRulesFromDirectory,
+  loadProjectIgnoreRules,
+} from '../ignore'
 
 describe('ignore rules', () => {
   it('returns defaults when project ignore file is missing', () => {
@@ -43,5 +48,27 @@ describe('ignore rules', () => {
     expect(isIgnoredPath('logs/app.log', false, rules)).toBe(true)
     expect(isIgnoredPath('coverage/unit/output.json', false, rules)).toBe(true)
     expect(isIgnoredPath('src/index.ts', false, rules)).toBe(false)
+  })
+
+  it('loads and evaluates .gitignore rules including negation', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cardinal-ignore-'))
+
+    try {
+      fs.writeFileSync(path.join(root, '.gitignore'), '*.log\ndist/\n', 'utf8')
+      fs.mkdirSync(path.join(root, 'src'), { recursive: true })
+      fs.writeFileSync(path.join(root, 'src', '.gitignore'), '*.tmp\n!keep.tmp\n', 'utf8')
+
+      const rootRules = loadGitIgnoreRulesFromDirectory(root, '')
+      const srcRules = loadGitIgnoreRulesFromDirectory(root, 'src')
+      const allRules = [...rootRules, ...srcRules]
+
+      expect(isIgnoredByGitIgnoreRules('debug.log', false, allRules)).toBe(true)
+      expect(isIgnoredByGitIgnoreRules('dist/app.js', false, allRules)).toBe(true)
+      expect(isIgnoredByGitIgnoreRules('src/file.tmp', false, allRules)).toBe(true)
+      expect(isIgnoredByGitIgnoreRules('src/keep.tmp', false, allRules)).toBe(false)
+      expect(isIgnoredByGitIgnoreRules('src/index.ts', false, allRules)).toBe(false)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
   })
 })

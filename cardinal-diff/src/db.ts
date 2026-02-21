@@ -97,6 +97,22 @@ export const removeProject = (projectId: string): void =>
     () => store.removeProject(projectId),
   )
 
+export const reprocessProject = (args: {
+  projectId: string
+  index: Map<string, IndexEntry>
+  cursor: string | null
+}): void =>
+  runDb(
+    'cardinal.diff.db.project.reprocess',
+    {
+      project_id: args.projectId,
+      index_size: args.index.size,
+      cursor: args.cursor,
+    },
+    () => store.reprocessProject(args),
+    'info',
+  )
+
 export const readIndex = (projectId: string): Map<string, IndexEntry> =>
   runDb(
     'cardinal.diff.db.index.read',

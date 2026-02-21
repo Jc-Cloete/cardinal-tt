@@ -53,6 +53,33 @@ describe('scanner', () => {
     }
   })
 
+  it('respects root and nested .gitignore files for full and subtree scans', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cardinal-scan-'))
+
+    try {
+      fs.mkdirSync(path.join(root, 'src', 'nested'), { recursive: true })
+      fs.writeFileSync(path.join(root, '.gitignore'), '*.log\n', 'utf8')
+      fs.writeFileSync(path.join(root, 'src', '.gitignore'), '*.tmp\n!keep.tmp\n', 'utf8')
+      fs.writeFileSync(path.join(root, 'debug.log'), 'ignore-root-log', 'utf8')
+      fs.writeFileSync(path.join(root, 'src', 'file.tmp'), 'ignore-src-temp', 'utf8')
+      fs.writeFileSync(path.join(root, 'src', 'keep.tmp'), 'keep-src-temp', 'utf8')
+      fs.writeFileSync(path.join(root, 'src', 'nested', 'notes.txt'), 'keep-nested', 'utf8')
+
+      const fullScan = scanProjectTree(root, [])
+      expect(fullScan.entries.has('debug.log')).toBe(false)
+      expect(fullScan.entries.has('src/file.tmp')).toBe(false)
+      expect(fullScan.entries.has('src/keep.tmp')).toBe(true)
+      expect(fullScan.entries.has('src/nested/notes.txt')).toBe(true)
+
+      const subtreeScan = scanProjectSubtree(root, 'src', [])
+      expect(subtreeScan.entries.has('src/file.tmp')).toBe(false)
+      expect(subtreeScan.entries.has('src/keep.tmp')).toBe(true)
+      expect(subtreeScan.entries.has('src/nested/notes.txt')).toBe(true)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it('reduces dirty paths to minimal roots and replaces index regions', () => {
     const roots = getMinimalDirtyRoots(['src', 'src/components', 'docs/readme', 'src/utils'])
     expect(roots).toEqual(['src', 'docs/readme'])

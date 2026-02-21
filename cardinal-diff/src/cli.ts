@@ -10,6 +10,7 @@ import {
   listCommitsService,
   listProjectsService,
   removeProjectService,
+  reprocessProjectService,
   runDoctorService,
 } from './service'
 import type { HashPolicy, JsonValue, ProjectMode } from './types'
@@ -81,6 +82,7 @@ cardinaldiff commands:
   projects list
   projects add --path <dir> [--name <name>] [--mode metadata|content] [--hash-policy off|on_change]
   projects remove <project_id>
+  projects reprocess <project_id> [--allow-active-agent]
   commits list --project <id> [--since <iso|ms|ns>] [--until <iso|ms|ns>] [--since_ns <ns>] [--until_ns <ns>] [--limit N]
   commit show <commit_id>
   file history --project <id> --path <rel_path> [--limit N]
@@ -131,6 +133,20 @@ const runProjects = async (args: string[]): Promise<void> => {
 
     removeProjectService(projectId)
     printJson({ ok: true, projectId })
+    return
+  }
+
+  if (action === 'reprocess') {
+    const projectId = args[1]
+    if (!projectId) {
+      throw new Error('Missing project_id')
+    }
+
+    const result = reprocessProjectService({
+      projectId,
+      allowActiveAgent: hasFlag(args, '--allow-active-agent'),
+    })
+    printJson({ ok: true, projectId, result })
     return
   }
 

@@ -123,6 +123,11 @@ type CardinalStore = {
     ignoreRules: string[]
   }) => ProjectConfig
   removeProject: (projectId: string) => void
+  reprocessProject: (args: {
+    projectId: string
+    index: Map<string, IndexEntry>
+    cursor: string | null
+  }) => void
   readIndex: (projectId: string) => Map<string, IndexEntry>
   writeCommit: (input: {
     projectId: string
@@ -362,6 +367,11 @@ export const createCardinalStore = (dbPath: string): CardinalStore => {
 
   const removeProjectStmt = db.query(`DELETE FROM cardinal_projects WHERE project_id = ?1`)
   const clearProjectIndexStmt = db.query(`DELETE FROM cardinal_index_entries WHERE project_id = ?1`)
+  const clearProjectCommitsStmt = db.query(`DELETE FROM cardinal_commits WHERE project_id = ?1`)
+  const clearProjectCommitEntriesStmt = db.query(
+    `DELETE FROM cardinal_commit_entries WHERE project_id = ?1`,
+  )
+  const clearProjectMetricsStmt = db.query(`DELETE FROM cardinal_metrics WHERE project_id = ?1`)
 
   const insertIndexEntryStmt = db.query(`
     INSERT INTO cardinal_index_entries (
@@ -681,6 +691,32 @@ export const createCardinalStore = (dbPath: string): CardinalStore => {
           removeProjectStmt.run(projectId)
         },
         'debug',
+      ),
+
+    reprocessProject: (args: {
+      projectId: string
+      index: Map<string, IndexEntry>
+      cursor: string | null
+    }): void =>
+      runStore(
+        'cardinal.store.project.reprocess',
+        {
+          project_id: args.projectId,
+          index_size: args.index.size,
+          cursor: args.cursor,
+        },
+        () => {
+          const now = new Date().toISOString()
+          const txn = db.transaction(() => {
+            clearProjectCommitEntriesStmt.run(args.projectId)
+            clearProjectCommitsStmt.run(args.projectId)
+            clearProjectMetricsStmt.run(args.projectId)
+            replaceIndex(args.projectId, args.index)
+            updateProjectCursorStmt.run(args.projectId, args.cursor, now)
+          })
+
+          txn()
+        },
       ),
 
     readIndex: (projectId: string): Map<string, IndexEntry> =>

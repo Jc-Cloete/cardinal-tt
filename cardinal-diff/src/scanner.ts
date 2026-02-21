@@ -1,6 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { isIgnoredPath } from './ignore'
+import {
+  type GitIgnoreRule,
+  isIgnoredByGitIgnoreRules,
+  isIgnoredPath,
+  loadGitIgnoreRulesFromDirectory,
+} from './ignore'
 import type { IndexEntry, ScanStats } from './types'
 
 const toPosixPath = (value: string): string => value.split(path.sep).join('/')
@@ -17,6 +22,39 @@ const emptyStats = (): ScanStats => ({
   elapsedMs: 0,
 })
 
+type ScanNodeState = {
+  relDir: string
+  gitIgnoreRules: GitIgnoreRule[]
+}
+
+const splitPathSegments = (value: string): string[] =>
+  toPosixPath(value)
+    .split('/')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+
+const buildGitIgnoreRuleChain = (rootPath: string, relDir: string): GitIgnoreRule[] => {
+  const segments = splitPathSegments(relDir)
+  const directories = ['']
+  for (let index = 1; index <= segments.length; index += 1) {
+    directories.push(segments.slice(0, index).join('/'))
+  }
+
+  return directories.flatMap((directory) => loadGitIgnoreRulesFromDirectory(rootPath, directory))
+}
+
+const withDirectoryGitIgnoreRules = (
+  rootPath: string,
+  relDir: string,
+  inheritedRules: GitIgnoreRule[],
+): GitIgnoreRule[] => {
+  const localRules = loadGitIgnoreRulesFromDirectory(rootPath, relDir)
+  if (localRules.length === 0) {
+    return inheritedRules
+  }
+  return [...inheritedRules, ...localRules]
+}
+
 const scanSubtreeInternal = (
   rootPath: string,
   relRoot: string,
@@ -26,10 +64,20 @@ const scanSubtreeInternal = (
   const startedAt = Date.now()
   const entries = new Map<string, IndexEntry>()
   const stats = emptyStats()
-  const stack: string[] = [relRoot]
+  const stack: ScanNodeState[] = [
+    {
+      relDir: relRoot,
+      gitIgnoreRules: buildGitIgnoreRuleChain(rootPath, relRoot),
+    },
+  ]
 
   while (stack.length > 0) {
-    const relDir = stack.pop() ?? ''
+    const state = stack.pop()
+    if (!state) {
+      continue
+    }
+
+    const relDir = state.relDir
     const absDir = relDir ? path.join(rootPath, relDir) : rootPath
     stats.directoriesScanned += 1
 
@@ -46,11 +94,17 @@ const scanSubtreeInternal = (
       const absPath = path.join(rootPath, relPath)
 
       if (entry.isDirectory()) {
-        if (isIgnoredPath(normalizedRelPath, true, ignoreRules)) {
+        if (
+          isIgnoredPath(normalizedRelPath, true, ignoreRules) ||
+          isIgnoredByGitIgnoreRules(normalizedRelPath, true, state.gitIgnoreRules)
+        ) {
           continue
         }
 
-        stack.push(relPath)
+        stack.push({
+          relDir: relPath,
+          gitIgnoreRules: withDirectoryGitIgnoreRules(rootPath, relPath, state.gitIgnoreRules),
+        })
 
         let directoryStats: fs.Stats
         try {
@@ -73,7 +127,10 @@ const scanSubtreeInternal = (
         continue
       }
 
-      if (isIgnoredPath(normalizedRelPath, false, ignoreRules)) {
+      if (
+        isIgnoredPath(normalizedRelPath, false, ignoreRules) ||
+        isIgnoredByGitIgnoreRules(normalizedRelPath, false, state.gitIgnoreRules)
+      ) {
         continue
       }
 

@@ -8,6 +8,7 @@ import {
   getCommit,
   getCommitEntries,
   getFileHistory,
+  getLatestHeartbeat,
   getProjectById,
   getProjectByRootPath,
   listCommits,
@@ -16,6 +17,7 @@ import {
   readIndex,
   recordProjectMetrics,
   removeProject,
+  reprocessProject,
   setProjectIndexSnapshot,
   touchProjectCursor,
   writeCommit,
@@ -81,6 +83,48 @@ const mergeScanStats = (parts: ScanStats[]): ScanStats => ({
 
 const projectConfigFilePath = (projectId: string): string =>
   path.join(projectsDir, `${projectId}.json`)
+
+const REPROCESS_AGENT_STALE_AFTER_MS = 45_000
+
+const isAgentProcessAlive = (pid: number | null): boolean => {
+  if (pid === null) {
+    return false
+  }
+
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+const assertAgentSafeForReprocess = (allowActiveAgent: boolean): void => {
+  if (allowActiveAgent) {
+    return
+  }
+
+  const heartbeat = getLatestHeartbeat()
+  if (!heartbeat || heartbeat.agentPid === null || !heartbeat.createdAt) {
+    return
+  }
+
+  const heartbeatTimestamp = Date.parse(heartbeat.createdAt)
+  if (!Number.isFinite(heartbeatTimestamp)) {
+    return
+  }
+
+  const heartbeatAgeMs = Math.max(0, Date.now() - heartbeatTimestamp)
+  if (heartbeatAgeMs > REPROCESS_AGENT_STALE_AFTER_MS) {
+    return
+  }
+
+  if (isAgentProcessAlive(heartbeat.agentPid)) {
+    throw new Error(
+      `Refusing to reprocess while cardinal-diff agent is active (pid=${heartbeat.agentPid}). Stop the agent or retry with --allow-active-agent.`,
+    )
+  }
+}
 
 export const persistProjectConfigFile = (project: ProjectConfig): void => {
   serviceLogger.run(
@@ -225,6 +269,63 @@ export const removeProjectService = (projectId: string): void => {
     },
   )
 }
+
+export type ReprocessProjectResult = {
+  projectId: string
+  rootPath: string
+  mode: ProjectMode
+  hashPolicy: HashPolicy
+  indexedEntries: number
+  cursor: string | null
+}
+
+export const reprocessProjectService = (args: {
+  projectId: string
+  allowActiveAgent?: boolean
+}): ReprocessProjectResult =>
+  serviceLogger.run(
+    {
+      event: 'cardinal.diff.project.reprocess',
+      fields: {
+        project_id: args.projectId,
+        allow_active_agent: Boolean(args.allowActiveAgent),
+      },
+    },
+    () => {
+      assertAgentSafeForReprocess(Boolean(args.allowActiveAgent))
+
+      const runtime = loadProjectRuntime(args.projectId)
+      if (!runtime) {
+        throw new Error(`Project not found: ${args.projectId}`)
+      }
+
+      const scanned = scanProjectTree(runtime.project.rootPath, runtime.project.ignoreRules)
+      const nextIndex =
+        runtime.project.mode === 'content'
+          ? materializeContentRefs(
+              runtime.project.rootPath,
+              scanned.entries,
+              runtime.project.maxBlobSizeBytes,
+            )
+          : scanned.entries
+
+      reprocessProject({
+        projectId: runtime.project.projectId,
+        index: nextIndex,
+        cursor: runtime.project.lastEventCursor,
+      })
+      persistProjectConfigFile(runtime.project)
+
+      return {
+        projectId: runtime.project.projectId,
+        rootPath: runtime.project.rootPath,
+        mode: runtime.project.mode,
+        hashPolicy: runtime.project.hashPolicy,
+        indexedEntries: nextIndex.size,
+        cursor: runtime.project.lastEventCursor,
+      }
+    },
+  )
 
 export const loadProjectRuntime = (
   projectId: string,

@@ -184,6 +184,73 @@ describe('cardinal-store createCardinalStore', () => {
     }
   })
 
+  it('reprocesses a project by clearing project history and replacing index snapshot', () => {
+    const { rootDir, dbPath } = makeTempDbPath()
+
+    try {
+      const store = createCardinalStore(dbPath)
+      const project = store.addProject({
+        name: 'project-reprocess',
+        rootPath: '/tmp/project-reprocess',
+        mode: 'metadata',
+        hashPolicy: 'off',
+        ignoreRules: [],
+      })
+
+      const firstIndex = new Map<string, IndexEntry>([
+        ['src/ignored.log', makeFileEntry('src/ignored.log', 10)],
+      ])
+      store.writeCommit({
+        projectId: project.projectId,
+        startedAtNs: 100,
+        endedAtNs: 200,
+        eventCursorStart: '10',
+        eventCursorEnd: '11',
+        changes: [
+          {
+            relPath: 'src/ignored.log',
+            op: 'ADD',
+            oldRelPath: null,
+            before: null,
+            after: { kind: 'file', size: 10, mtimeNs: 1, hash: null, inode: 1, device: 1 },
+            blobBefore: null,
+            blobAfter: null,
+          },
+        ],
+        nextIndex: firstIndex,
+      })
+      store.recordProjectMetrics({
+        projectId: project.projectId,
+        queueDepth: 1,
+        scanStats: { directoriesScanned: 1, filesScanned: 1, elapsedMs: 1 },
+        changes: 1,
+      })
+
+      const nextIndex = new Map<string, IndexEntry>([
+        ['src/keep.ts', makeFileEntry('src/keep.ts', 120)],
+      ])
+      store.reprocessProject({
+        projectId: project.projectId,
+        index: nextIndex,
+        cursor: '42',
+      })
+
+      expect(store.listCommits({ projectId: project.projectId, limit: 50 })).toHaveLength(0)
+      expect(
+        store.getFileHistory({
+          projectId: project.projectId,
+          relPath: 'src/ignored.log',
+          limit: 50,
+        }),
+      ).toHaveLength(0)
+      expect(store.readIndex(project.projectId).has('src/ignored.log')).toBe(false)
+      expect(store.readIndex(project.projectId).has('src/keep.ts')).toBe(true)
+      expect(store.getProjectById(project.projectId)?.lastEventCursor).toBe('42')
+    } finally {
+      cleanup(rootDir)
+    }
+  })
+
   it('throws when opened against an invalid sqlite path', () => {
     const dirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'cardinal-store-invalid-'))
 
