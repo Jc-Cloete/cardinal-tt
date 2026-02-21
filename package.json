@@ -1,0 +1,19 @@
+{
+  "name": "cardinal-tt-fullstack",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"cd server && bun run dev\" \"cd client && bun run dev\"",
+    "dev:server": "cd server && bun run dev",
+    "dev:client": "cd client && bun run dev",
+    "start": "cd server && bun run start",
+    "typecheck": "concurrently -n server,client -c blue,green \"cd server && bun run typecheck\" \"cd client && bun run typecheck\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

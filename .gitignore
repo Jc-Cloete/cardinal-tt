@@ -1,0 +1,5 @@
+node_modules/
+.env
+rollout-*.jsonl
+client/dist/
+*.sqlite
