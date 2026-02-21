@@ -29,3 +29,28 @@ const defaultCacheDbPath = fs.existsSync(specCacheDbPath)
     ? legacyCacheDbPath
     : specCacheDbPath
 export const cacheDbPath = path.resolve(process.env.CACHE_DB_PATH || defaultCacheDbPath)
+
+const parsePositiveNumber = (rawValue: string | undefined, fallback: number): number => {
+  const parsed = Number.parseInt(String(rawValue || ''), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+const jiraBaseUrl = String(process.env.JIRA_BASE_URL || '')
+  .trim()
+  .replace(/\/+$/g, '')
+const jiraEmail = String(process.env.JIRA_EMAIL || '').trim()
+const jiraApiToken = String(process.env.JIRA_API_TOKEN || '').trim()
+const jiraAuthToken = String(process.env.JIRA_AUTH_TOKEN || '').trim()
+
+export const jiraConfig = {
+  baseUrl: jiraBaseUrl,
+  email: jiraEmail,
+  apiToken: jiraApiToken,
+  authToken: jiraAuthToken,
+  defaultIssueType: String(process.env.JIRA_DEFAULT_ISSUE_TYPE || 'Task').trim() || 'Task',
+  projectsCacheTtlMs: parsePositiveNumber(process.env.JIRA_PROJECTS_CACHE_TTL_MS, 5 * 60 * 1000),
+  issuesCacheTtlMs: parsePositiveNumber(process.env.JIRA_ISSUES_CACHE_TTL_MS, 60 * 1000),
+  isConfigured:
+    jiraBaseUrl.length > 0 &&
+    (jiraAuthToken.length > 0 || (jiraEmail.length > 0 && jiraApiToken.length > 0)),
+}

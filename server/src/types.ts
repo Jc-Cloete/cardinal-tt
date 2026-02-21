@@ -118,3 +118,32 @@ export type CardinalDiffEntry = {
   patch: string | null
   patchTruncated: boolean
 }
+
+export type JiraProject = {
+  jiraProjectId: string
+  projectKey: string
+  name: string
+  projectType: string | null
+  leadDisplayName: string | null
+  avatarUrl: string | null
+}
+
+export type JiraIssue = {
+  jiraIssueId: string
+  issueKey: string
+  projectKey: string
+  summary: string
+  statusId: string | null
+  statusName: string | null
+  issueType: string | null
+  assigneeDisplayName: string | null
+  priorityName: string | null
+  updatedAt: string | null
+}
+
+export type JiraTransition = {
+  transitionId: string
+  name: string
+  toStatusId: string | null
+  toStatusName: string | null
+}

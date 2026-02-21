@@ -63,6 +63,7 @@ Stores full file blobs for changed text files (and optionally binaries) to allow
    * show commit details
    * show file history
    * show diff between two commits (Mode B; Mode A limited to metadata diff)
+   * reprocess one tracked project from current filesystem state
 
 #### Non-functional
 
@@ -75,10 +76,7 @@ Stores full file blobs for changed text files (and optionally binaries) to allow
 
 * macOS user-level background service via LaunchAgent
 * Runs under user session, watches only within `$HOME`
-* Implementation language: either Swift (native) or Go/Rust/Python with FSEvents bindings
-
-  * Recommended: Swift (CoreServices FSEvents is stable and native)
-  * Acceptable: Go/Rust with well-maintained FSEvents wrapper
+* Implementation language/runtime: TypeScript on Bun with FSEvents bindings
 
 ### 7. Data Model
 
@@ -141,6 +139,11 @@ Stores full file blobs for changed text files (and optionally binaries) to allow
 
   * `.cardinaldiffignore` at project root
   * Gitignore-like glob matching (no need to fully implement every gitignore edge-case; must support common patterns)
+* Native `.gitignore` files are respected:
+
+  * root `.gitignore`
+  * nested `.gitignore` files in subdirectories
+  * negated patterns such as `!keep.tmp`
 
 ### 9. Event Handling Pipeline
 
@@ -233,6 +236,7 @@ Commands:
 * `cardinaldiff projects list`
 * `cardinaldiff projects add --path <dir> [--name <name>] [--mode metadata|content]`
 * `cardinaldiff projects remove <project_id>`
+* `cardinaldiff projects reprocess <project_id> [--allow-active-agent]`
 * `cardinaldiff commits list --project <id> [--since ...] [--until ...] [--limit N]`
 * `cardinaldiff commit show <commit_id>`
 * `cardinaldiff file history --project <id> --path <rel_path> [--limit N]`
@@ -279,6 +283,11 @@ Text detection (Mode B):
 * If index drift suspected (rare):
 
   * periodic integrity scan option: `cardinaldiff doctor --project <id>`
+  * operator re-seed option: `cardinaldiff projects reprocess <project_id>`
+* Reprocess safety:
+
+  * default behavior blocks while a fresh, live agent heartbeat is detected
+  * `--allow-active-agent` is an explicit override for maintenance windows
 
 ### 15. Minimal MVP Acceptance Criteria
 

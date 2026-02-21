@@ -9,6 +9,7 @@ import { CardinalDiffPanel } from './features/cardinal/CardinalDiffPanel'
 import { CardinalEventsPage } from './features/cardinal/CardinalEventsPage'
 import { CardinalHeartbeatBadge } from './features/cardinal/CardinalHeartbeatBadge'
 import { useCardinalStatus } from './features/cardinal/useCardinalStatus'
+import { JiraPage } from './features/jira/JiraPage'
 import { useConversationExplorer } from './hooks/useConversationExplorer'
 import { clientLogger } from './observability/logger'
 import type { SessionFile } from './types'
@@ -16,7 +17,7 @@ import { getProjectDisplayName } from './utils/display'
 import { parsePreviewMessages } from './utils/preview'
 import { buildCompressedTimeline } from './utils/timeline'
 
-type AppPage = 'explorer' | 'events'
+type AppPage = 'explorer' | 'events' | 'jira'
 
 const appLogger = clientLogger.child({ component: 'app' })
 
@@ -149,6 +150,9 @@ export default function App() {
           <Button variant={page === 'events' ? 'solid' : 'soft'} onClick={() => setPage('events')}>
             Events
           </Button>
+          <Button variant={page === 'jira' ? 'solid' : 'soft'} onClick={() => setPage('jira')}>
+            Jira
+          </Button>
           <ThemeToggle />
         </Flex>
       </Flex>
@@ -183,8 +187,10 @@ export default function App() {
 
           <CardinalDiffPanel />
         </>
-      ) : (
+      ) : page === 'events' ? (
         <CardinalEventsPage projects={trackedProjects} />
+      ) : (
+        <JiraPage />
       )}
 
       <PreviewModal

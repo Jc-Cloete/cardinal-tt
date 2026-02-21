@@ -29,8 +29,10 @@ Returned store capabilities:
 
 - Project management: `listProjects`, `getProjectById`, `getProjectByRootPath`, `addProject`, `removeProject`
 - Index management: `readIndex`, `setProjectIndexSnapshot`, `touchProjectCursor`
+- Project maintenance: `reprocessProject` (clear project history and replace index snapshot/cursor atomically)
 - Commit writing: `writeCommit`
 - Metrics/heartbeat: `recordProjectMetrics`, `recordHeartbeat`, `getLatestHeartbeat`
+- Jira cache: `listJiraProjects`, `replaceJiraProjects`, `listJiraIssues`, `replaceJiraIssues`, `upsertJiraIssue`, `getJiraSyncAt`
 - Commit/history queries: `listCommits`, `listCommitsBySequenceRange`, `getCommit`, `getCommitEntries`, `getFileHistory`
 
 Type exports are canonical and must remain strict (no `any`/`unknown` in public models).
@@ -44,6 +46,9 @@ Primary tables:
 - `cardinal_commits`
 - `cardinal_commit_entries`
 - `cardinal_metrics`
+- `jira_projects`
+- `jira_issues`
+- `jira_sync_state`
 
 Indexes:
 
@@ -71,7 +76,9 @@ Schema upgrades:
    - derive parent/sequence from current commit head
    - write commit + entries + index replacement + cursor update in one transaction
 5. `setProjectIndexSnapshot` MUST replace index and cursor atomically.
-6. Query APIs MUST cap `limit` values to prevent unbounded reads.
+6. `reprocessProject` MUST clear project commit/history/index state and write the provided snapshot in one transaction.
+7. Query APIs MUST cap `limit` values to prevent unbounded reads.
+8. Jira cache replacement methods MUST update snapshot rows and sync markers atomically.
 
 ## 6. Data Integrity Invariants
 
@@ -112,6 +119,8 @@ Minimum required coverage in this package:
 - Edge cases:
   - empty commit batch returns `null`
   - heartbeat absent/present behavior
+  - reprocess resets prior commit history and seeds replacement index snapshot
+  - jira cache replace/upsert behavior and sync marker updates
 
 ## 11. Change Management
 

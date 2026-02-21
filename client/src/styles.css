@@ -292,6 +292,22 @@ body {
   margin-bottom: 4px;
 }
 
+.jira-ticket-row {
+  appearance: none;
+  border: 1px solid var(--gray-6);
+  border-radius: 8px;
+  background: var(--gray-2);
+  padding: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.jira-ticket-row:hover,
+.jira-ticket-row.is-active {
+  background: var(--cyan-4);
+  border-color: var(--cyan-8);
+}
+
 @media (max-width: 900px) {
   .cardinal-grid {
     grid-template-columns: 1fr;

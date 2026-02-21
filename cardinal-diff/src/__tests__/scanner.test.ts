@@ -47,7 +47,7 @@ describe('scanner', () => {
     try {
       const result = scanProjectSubtree(root, 'missing', [])
       expect(result.entries.size).toBe(0)
-      expect(result.stats.directoriesScanned).toBeGreaterThan(0)
+      expect(result.stats.directoriesScanned).toBe(0)
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }
@@ -75,6 +75,37 @@ describe('scanner', () => {
       expect(subtreeScan.entries.has('src/file.tmp')).toBe(false)
       expect(subtreeScan.entries.has('src/keep.tmp')).toBe(true)
       expect(subtreeScan.entries.has('src/nested/notes.txt')).toBe(true)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('retains subtree root directory entries during targeted replacement', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cardinal-scan-'))
+
+    try {
+      fs.mkdirSync(path.join(root, 'docs', 'specs'), { recursive: true })
+      fs.writeFileSync(path.join(root, 'docs', 'specs', 'cardinal.md'), 'before', 'utf8')
+      fs.writeFileSync(path.join(root, 'docs', 'guide.md'), 'guide', 'utf8')
+
+      const previous = scanProjectTree(root, [])
+      expect(previous.entries.has('docs/specs')).toBe(true)
+
+      fs.writeFileSync(path.join(root, 'docs', 'specs', 'cardinal.md'), 'after', 'utf8')
+
+      const subtree = scanProjectSubtree(root, 'docs/specs', [])
+      expect(subtree.entries.has('docs/specs')).toBe(true)
+
+      const next = replaceIndexRegions(previous.entries, [
+        {
+          root: 'docs/specs',
+          entries: subtree.entries,
+        },
+      ])
+
+      expect(next.has('docs/specs')).toBe(true)
+      expect(next.has('docs/specs/cardinal.md')).toBe(true)
+      expect(next.has('docs/guide.md')).toBe(true)
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }

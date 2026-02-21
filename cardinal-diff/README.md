@@ -21,6 +21,7 @@ bun run agent:uninstall
 bun run start projects list
 bun run start projects add --path /absolute/path --name my-project --mode metadata --hash-policy off
 bun run start projects remove <project_id>
+bun run start projects reprocess <project_id>
 bun run start commits list --project <project_id> --limit 100
 bun run start commit show <commit_id>
 bun run start file history --project <project_id> --path src/index.ts
@@ -28,6 +29,18 @@ bun run start diff --project <project_id> --from <commit_id> --to <commit_id>
 bun run start doctor --project <project_id>
 bun run start agent run
 ```
+
+Reprocess guard behavior:
+
+- By default, reprocess refuses to run while a fresh, live agent heartbeat is detected.
+- Override only when intentional: `bun run start projects reprocess <project_id> --allow-active-agent`
+
+Ignore behavior:
+
+- Default ignore patterns are always active (VCS/build/temp paths).
+- `.cardinaldiffignore` at project root extends default patterns.
+- `.gitignore` rules are respected from project root and nested directories.
+- Negated gitignore rules (for example `!keep.tmp`) are supported.
 
 ## Runtime Paths
 

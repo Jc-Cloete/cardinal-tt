@@ -251,6 +251,79 @@ describe('cardinal-store createCardinalStore', () => {
     }
   })
 
+  it('stores jira cache data with sync markers and supports issue upserts', () => {
+    const { rootDir, dbPath } = makeTempDbPath()
+
+    try {
+      const store = createCardinalStore(dbPath)
+      const now = new Date().toISOString()
+
+      store.replaceJiraProjects({
+        syncedAt: now,
+        projects: [
+          {
+            jiraProjectId: '10001',
+            projectKey: 'APP',
+            name: 'App Platform',
+            projectType: 'software',
+            leadDisplayName: 'Alice',
+            avatarUrl: null,
+            rawJson: '{"key":"APP"}',
+            cachedAt: now,
+          },
+        ],
+      })
+
+      expect(store.getJiraSyncAt('projects')).toBe(now)
+      expect(store.listJiraProjects()).toHaveLength(1)
+      expect(store.listJiraProjects()[0]?.projectKey).toBe('APP')
+
+      store.replaceJiraIssues({
+        projectKey: 'APP',
+        syncedAt: now,
+        issues: [
+          {
+            jiraIssueId: '20001',
+            issueKey: 'APP-1',
+            projectKey: 'APP',
+            summary: 'Initial setup',
+            statusId: '11',
+            statusName: 'To Do',
+            issueType: 'Task',
+            assigneeDisplayName: 'Bob',
+            priorityName: 'High',
+            updatedAt: now,
+            rawJson: '{"key":"APP-1"}',
+            cachedAt: now,
+          },
+        ],
+      })
+
+      expect(store.getJiraSyncAt('issues:APP')).toBe(now)
+      expect(store.listJiraIssues('APP')).toHaveLength(1)
+      expect(store.listJiraIssues('APP')[0]?.statusName).toBe('To Do')
+
+      store.upsertJiraIssue({
+        jiraIssueId: '20001',
+        issueKey: 'APP-1',
+        projectKey: 'APP',
+        summary: 'Initial setup',
+        statusId: '21',
+        statusName: 'In Progress',
+        issueType: 'Task',
+        assigneeDisplayName: 'Bob',
+        priorityName: 'High',
+        updatedAt: now,
+        rawJson: '{"key":"APP-1","status":"In Progress"}',
+        cachedAt: now,
+      })
+
+      expect(store.listJiraIssues('APP')[0]?.statusName).toBe('In Progress')
+    } finally {
+      cleanup(rootDir)
+    }
+  })
+
   it('throws when opened against an invalid sqlite path', () => {
     const dirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'cardinal-store-invalid-'))
 

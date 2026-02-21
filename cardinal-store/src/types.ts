@@ -90,3 +90,29 @@ export type HeartbeatRow = {
   projectCount: number | null
   agentPid: number | null
 }
+
+export type JiraCachedProject = {
+  jiraProjectId: string
+  projectKey: string
+  name: string
+  projectType: string | null
+  leadDisplayName: string | null
+  avatarUrl: string | null
+  rawJson: string
+  cachedAt: string
+}
+
+export type JiraCachedIssue = {
+  jiraIssueId: string
+  issueKey: string
+  projectKey: string
+  summary: string
+  statusId: string | null
+  statusName: string | null
+  issueType: string | null
+  assigneeDisplayName: string | null
+  priorityName: string | null
+  updatedAt: string | null
+  rawJson: string
+  cachedAt: string
+}

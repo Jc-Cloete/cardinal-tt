@@ -18,6 +18,8 @@ import type {
   HashPolicy,
   HeartbeatRow,
   IndexEntry,
+  JiraCachedIssue,
+  JiraCachedProject,
   JsonObject,
   JsonValue,
   ProjectConfig,
@@ -111,6 +113,65 @@ const toCommitRecord = (value: JsonValue): CommitRecord | null => {
   }
 }
 
+const toJiraCachedProject = (value: JsonValue): JiraCachedProject | null => {
+  const row = value as JsonObject | null
+  if (!row) {
+    return null
+  }
+
+  const jiraProjectId = asString(row.jira_project_id)
+  const projectKey = asString(row.project_key)
+  const name = asString(row.name)
+  const rawJson = asString(row.raw_json)
+  const cachedAt = asString(row.cached_at)
+  if (!jiraProjectId || !projectKey || !name || !rawJson || !cachedAt) {
+    return null
+  }
+
+  return {
+    jiraProjectId,
+    projectKey,
+    name,
+    projectType: asString(row.project_type),
+    leadDisplayName: asString(row.lead_display_name),
+    avatarUrl: asString(row.avatar_url),
+    rawJson,
+    cachedAt,
+  }
+}
+
+const toJiraCachedIssue = (value: JsonValue): JiraCachedIssue | null => {
+  const row = value as JsonObject | null
+  if (!row) {
+    return null
+  }
+
+  const jiraIssueId = asString(row.jira_issue_id)
+  const issueKey = asString(row.issue_key)
+  const projectKey = asString(row.project_key)
+  const summary = asString(row.summary)
+  const rawJson = asString(row.raw_json)
+  const cachedAt = asString(row.cached_at)
+  if (!jiraIssueId || !issueKey || !projectKey || !summary || !rawJson || !cachedAt) {
+    return null
+  }
+
+  return {
+    jiraIssueId,
+    issueKey,
+    projectKey,
+    summary,
+    statusId: asString(row.status_id),
+    statusName: asString(row.status_name),
+    issueType: asString(row.issue_type),
+    assigneeDisplayName: asString(row.assignee_display_name),
+    priorityName: asString(row.priority_name),
+    updatedAt: asString(row.updated_at),
+    rawJson,
+    cachedAt,
+  }
+}
+
 type CardinalStore = {
   listProjects: () => ProjectConfig[]
   getProjectById: (projectId: string) => ProjectConfig | null
@@ -152,6 +213,16 @@ type CardinalStore = {
   }) => void
   recordHeartbeat: (args: { projectCount: number; agentPid: number }) => void
   getLatestHeartbeat: () => HeartbeatRow | null
+  listJiraProjects: () => JiraCachedProject[]
+  replaceJiraProjects: (args: { projects: JiraCachedProject[]; syncedAt: string }) => void
+  listJiraIssues: (projectKey: string) => JiraCachedIssue[]
+  replaceJiraIssues: (args: {
+    projectKey: string
+    issues: JiraCachedIssue[]
+    syncedAt: string
+  }) => void
+  upsertJiraIssue: (issue: JiraCachedIssue) => void
+  getJiraSyncAt: (syncKey: string) => string | null
   listCommits: (args: {
     projectId: string
     sinceNs?: number
@@ -260,8 +331,41 @@ export const createCardinalStore = (dbPath: string): CardinalStore => {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS jira_projects (
+      jira_project_id TEXT PRIMARY KEY,
+      project_key TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      project_type TEXT,
+      lead_display_name TEXT,
+      avatar_url TEXT,
+      raw_json TEXT NOT NULL,
+      cached_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS jira_issues (
+      jira_issue_id TEXT PRIMARY KEY,
+      issue_key TEXT NOT NULL UNIQUE,
+      project_key TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      status_id TEXT,
+      status_name TEXT,
+      issue_type TEXT,
+      assignee_display_name TEXT,
+      priority_name TEXT,
+      updated_at TEXT,
+      raw_json TEXT NOT NULL,
+      cached_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS jira_sync_state (
+      sync_key TEXT PRIMARY KEY,
+      synced_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_cardinal_commits_project_time ON cardinal_commits(project_id, ended_at_ns);
     CREATE INDEX IF NOT EXISTS idx_cardinal_metrics_project_time ON cardinal_metrics(project_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_jira_issues_project_key ON jira_issues(project_key);
+    CREATE INDEX IF NOT EXISTS idx_jira_issues_updated_at ON jira_issues(updated_at);
   `)
 
   const addColumnIfMissing = (table: string, column: string, ddl: string): void => {
@@ -466,6 +570,104 @@ export const createCardinalStore = (dbPath: string): CardinalStore => {
     FROM cardinal_metrics
     WHERE metric_name = 'heartbeat'
     ORDER BY metric_id DESC
+    LIMIT 1
+  `)
+
+  const deleteAllJiraProjectsStmt = db.query(`DELETE FROM jira_projects`)
+  const insertJiraProjectStmt = db.query(`
+    INSERT INTO jira_projects (
+      jira_project_id,
+      project_key,
+      name,
+      project_type,
+      lead_display_name,
+      avatar_url,
+      raw_json,
+      cached_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+    ON CONFLICT(jira_project_id) DO UPDATE SET
+      project_key=excluded.project_key,
+      name=excluded.name,
+      project_type=excluded.project_type,
+      lead_display_name=excluded.lead_display_name,
+      avatar_url=excluded.avatar_url,
+      raw_json=excluded.raw_json,
+      cached_at=excluded.cached_at
+  `)
+
+  const selectJiraProjectsStmt = db.query(`
+    SELECT
+      jira_project_id,
+      project_key,
+      name,
+      project_type,
+      lead_display_name,
+      avatar_url,
+      raw_json,
+      cached_at
+    FROM jira_projects
+    ORDER BY lower(project_key) ASC
+  `)
+
+  const deleteJiraIssuesByProjectStmt = db.query(`DELETE FROM jira_issues WHERE project_key = ?1`)
+  const insertJiraIssueStmt = db.query(`
+    INSERT INTO jira_issues (
+      jira_issue_id,
+      issue_key,
+      project_key,
+      summary,
+      status_id,
+      status_name,
+      issue_type,
+      assignee_display_name,
+      priority_name,
+      updated_at,
+      raw_json,
+      cached_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+    ON CONFLICT(jira_issue_id) DO UPDATE SET
+      issue_key=excluded.issue_key,
+      project_key=excluded.project_key,
+      summary=excluded.summary,
+      status_id=excluded.status_id,
+      status_name=excluded.status_name,
+      issue_type=excluded.issue_type,
+      assignee_display_name=excluded.assignee_display_name,
+      priority_name=excluded.priority_name,
+      updated_at=excluded.updated_at,
+      raw_json=excluded.raw_json,
+      cached_at=excluded.cached_at
+  `)
+
+  const selectJiraIssuesByProjectStmt = db.query(`
+    SELECT
+      jira_issue_id,
+      issue_key,
+      project_key,
+      summary,
+      status_id,
+      status_name,
+      issue_type,
+      assignee_display_name,
+      priority_name,
+      updated_at,
+      raw_json,
+      cached_at
+    FROM jira_issues
+    WHERE project_key = ?1
+    ORDER BY issue_key ASC
+  `)
+
+  const upsertJiraSyncStateStmt = db.query(`
+    INSERT INTO jira_sync_state (sync_key, synced_at)
+    VALUES (?1, ?2)
+    ON CONFLICT(sync_key) DO UPDATE SET synced_at=excluded.synced_at
+  `)
+
+  const selectJiraSyncStateStmt = db.query(`
+    SELECT synced_at
+    FROM jira_sync_state
+    WHERE sync_key = ?1
     LIMIT 1
   `)
 
@@ -970,6 +1172,137 @@ export const createCardinalStore = (dbPath: string): CardinalStore => {
             projectCount,
             agentPid,
           }
+        },
+        'debug',
+      ),
+
+    listJiraProjects: (): JiraCachedProject[] =>
+      runStore(
+        'cardinal.store.jira.projects.list',
+        {},
+        () =>
+          (selectJiraProjectsStmt.all() as Array<JsonObject>)
+            .map((row) => toJiraCachedProject(row))
+            .filter((row): row is JiraCachedProject => row !== null),
+        'debug',
+      ),
+
+    replaceJiraProjects: (args: { projects: JiraCachedProject[]; syncedAt: string }): void =>
+      runStore(
+        'cardinal.store.jira.projects.replace',
+        {
+          project_count: args.projects.length,
+          synced_at: args.syncedAt,
+        },
+        () => {
+          const tx = db.transaction(() => {
+            deleteAllJiraProjectsStmt.run()
+            for (const project of args.projects) {
+              insertJiraProjectStmt.run(
+                project.jiraProjectId,
+                project.projectKey,
+                project.name,
+                project.projectType,
+                project.leadDisplayName,
+                project.avatarUrl,
+                project.rawJson,
+                project.cachedAt,
+              )
+            }
+            upsertJiraSyncStateStmt.run('projects', args.syncedAt)
+          })
+          tx()
+        },
+        'debug',
+      ),
+
+    listJiraIssues: (projectKey: string): JiraCachedIssue[] =>
+      runStore(
+        'cardinal.store.jira.issues.list',
+        {
+          project_key: projectKey,
+        },
+        () =>
+          (selectJiraIssuesByProjectStmt.all(projectKey) as Array<JsonObject>)
+            .map((row) => toJiraCachedIssue(row))
+            .filter((row): row is JiraCachedIssue => row !== null),
+        'debug',
+      ),
+
+    replaceJiraIssues: (args: {
+      projectKey: string
+      issues: JiraCachedIssue[]
+      syncedAt: string
+    }): void =>
+      runStore(
+        'cardinal.store.jira.issues.replace',
+        {
+          project_key: args.projectKey,
+          issue_count: args.issues.length,
+          synced_at: args.syncedAt,
+        },
+        () => {
+          const tx = db.transaction(() => {
+            deleteJiraIssuesByProjectStmt.run(args.projectKey)
+            for (const issue of args.issues) {
+              insertJiraIssueStmt.run(
+                issue.jiraIssueId,
+                issue.issueKey,
+                issue.projectKey,
+                issue.summary,
+                issue.statusId,
+                issue.statusName,
+                issue.issueType,
+                issue.assigneeDisplayName,
+                issue.priorityName,
+                issue.updatedAt,
+                issue.rawJson,
+                issue.cachedAt,
+              )
+            }
+            upsertJiraSyncStateStmt.run(`issues:${args.projectKey}`, args.syncedAt)
+          })
+          tx()
+        },
+        'debug',
+      ),
+
+    upsertJiraIssue: (issue: JiraCachedIssue): void =>
+      runStore(
+        'cardinal.store.jira.issue.upsert',
+        {
+          issue_key: issue.issueKey,
+          project_key: issue.projectKey,
+          status_name: issue.statusName,
+        },
+        () => {
+          insertJiraIssueStmt.run(
+            issue.jiraIssueId,
+            issue.issueKey,
+            issue.projectKey,
+            issue.summary,
+            issue.statusId,
+            issue.statusName,
+            issue.issueType,
+            issue.assigneeDisplayName,
+            issue.priorityName,
+            issue.updatedAt,
+            issue.rawJson,
+            issue.cachedAt,
+          )
+        },
+        'debug',
+      ),
+
+    getJiraSyncAt: (syncKey: string): string | null =>
+      runStore(
+        'cardinal.store.jira.sync.get',
+        {
+          sync_key: syncKey,
+        },
+        () => {
+          const row = selectJiraSyncStateStmt.get(syncKey) as JsonObject | null
+          return row ? asString(row.synced_at) : null
         },
         'debug',
       ),

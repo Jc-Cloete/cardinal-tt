@@ -55,6 +55,23 @@ const withDirectoryGitIgnoreRules = (
   return [...inheritedRules, ...localRules]
 }
 
+const toEntryFromStats = (
+  relPath: string,
+  kind: IndexEntry['kind'],
+  stats: fs.Stats,
+  symlinkTarget: string | null,
+): IndexEntry => ({
+  relPath,
+  kind,
+  size: kind === 'file' ? Number(stats.size || 0) : 0,
+  mtimeNs: toNs(stats.mtimeMs),
+  inode: Number(stats.ino || 0),
+  device: Number(stats.dev || 0),
+  modeBits: Number.isFinite(stats.mode) ? stats.mode : null,
+  hash: null,
+  symlinkTarget,
+})
+
 const scanSubtreeInternal = (
   rootPath: string,
   relRoot: string,
@@ -64,12 +81,64 @@ const scanSubtreeInternal = (
   const startedAt = Date.now()
   const entries = new Map<string, IndexEntry>()
   const stats = emptyStats()
-  const stack: ScanNodeState[] = [
-    {
+  const initialGitIgnoreRules = buildGitIgnoreRuleChain(rootPath, relRoot)
+  const stack: ScanNodeState[] = []
+
+  if (relRoot === '') {
+    stack.push({
       relDir: relRoot,
-      gitIgnoreRules: buildGitIgnoreRuleChain(rootPath, relRoot),
-    },
-  ]
+      gitIgnoreRules: initialGitIgnoreRules,
+    })
+  } else {
+    const normalizedRelRoot = toPosixPath(relRoot)
+    const absRoot = path.join(rootPath, relRoot)
+
+    let rootStats: fs.Stats
+    try {
+      rootStats = fs.lstatSync(absRoot)
+    } catch {
+      stats.elapsedMs = Date.now() - startedAt
+      return { entries, stats }
+    }
+
+    if (
+      isIgnoredPath(normalizedRelRoot, rootStats.isDirectory(), ignoreRules) ||
+      isIgnoredByGitIgnoreRules(normalizedRelRoot, rootStats.isDirectory(), initialGitIgnoreRules)
+    ) {
+      stats.elapsedMs = Date.now() - startedAt
+      return { entries, stats }
+    }
+
+    if (rootStats.isSymbolicLink()) {
+      let target: string | null = null
+      try {
+        target = fs.readlinkSync(absRoot)
+      } catch {
+        target = null
+      }
+      entries.set(
+        normalizedRelRoot,
+        toEntryFromStats(normalizedRelRoot, 'symlink', rootStats, target),
+      )
+      stats.elapsedMs = Date.now() - startedAt
+      return { entries, stats }
+    }
+
+    if (!rootStats.isDirectory()) {
+      if (rootStats.isFile()) {
+        stats.filesScanned += 1
+        entries.set(normalizedRelRoot, toEntryFromStats(normalizedRelRoot, 'file', rootStats, null))
+      }
+      stats.elapsedMs = Date.now() - startedAt
+      return { entries, stats }
+    }
+
+    entries.set(normalizedRelRoot, toEntryFromStats(normalizedRelRoot, 'dir', rootStats, null))
+    stack.push({
+      relDir: relRoot,
+      gitIgnoreRules: initialGitIgnoreRules,
+    })
+  }
 
   while (stack.length > 0) {
     const state = stack.pop()
@@ -113,17 +182,10 @@ const scanSubtreeInternal = (
           continue
         }
 
-        entries.set(normalizedRelPath, {
-          relPath: normalizedRelPath,
-          kind: 'dir',
-          size: 0,
-          mtimeNs: toNs(directoryStats.mtimeMs),
-          inode: Number(directoryStats.ino || 0),
-          device: Number(directoryStats.dev || 0),
-          modeBits: Number.isFinite(directoryStats.mode) ? directoryStats.mode : null,
-          hash: null,
-          symlinkTarget: null,
-        })
+        entries.set(
+          normalizedRelPath,
+          toEntryFromStats(normalizedRelPath, 'dir', directoryStats, null),
+        )
         continue
       }
 
@@ -149,17 +211,10 @@ const scanSubtreeInternal = (
           target = null
         }
 
-        entries.set(normalizedRelPath, {
-          relPath: normalizedRelPath,
-          kind: 'symlink',
-          size: 0,
-          mtimeNs: toNs(fileStats.mtimeMs),
-          inode: Number(fileStats.ino || 0),
-          device: Number(fileStats.dev || 0),
-          modeBits: Number.isFinite(fileStats.mode) ? fileStats.mode : null,
-          hash: null,
-          symlinkTarget: target,
-        })
+        entries.set(
+          normalizedRelPath,
+          toEntryFromStats(normalizedRelPath, 'symlink', fileStats, target),
+        )
         continue
       }
 
@@ -168,17 +223,7 @@ const scanSubtreeInternal = (
       }
 
       stats.filesScanned += 1
-      entries.set(normalizedRelPath, {
-        relPath: normalizedRelPath,
-        kind: 'file',
-        size: Number(fileStats.size || 0),
-        mtimeNs: toNs(fileStats.mtimeMs),
-        inode: Number(fileStats.ino || 0),
-        device: Number(fileStats.dev || 0),
-        modeBits: Number.isFinite(fileStats.mode) ? fileStats.mode : null,
-        hash: null,
-        symlinkTarget: null,
-      })
+      entries.set(normalizedRelPath, toEntryFromStats(normalizedRelPath, 'file', fileStats, null))
     }
   }
 

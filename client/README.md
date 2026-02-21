@@ -1,6 +1,6 @@
 # client
 
-React + Vite frontend for exploring session conversations and CardinalDiff data.
+React + Vite frontend for exploring session conversations, CardinalDiff data, and Jira workflows.
 
 ## Scripts
 
@@ -20,10 +20,11 @@ bun run typecheck
 
 ## Source Layout
 
-- `src/App.tsx`: top-level page switcher (`explorer` / `events`) and shared UI composition.
+- `src/App.tsx`: top-level page switcher (`explorer` / `events` / `jira`) and shared UI composition.
 - `src/hooks/useConversationExplorer.ts`: data-loading orchestration for year/month/day/project/files/preview.
 - `src/components/*`: explorer controls, timeline, preview modal, theme toggle.
 - `src/features/cardinal/*`: CardinalDiff status hooks, diff UI, heartbeat badge, events page.
+- `src/features/jira/*`: Jira project/issue listing, ticket creation, comments, transitions.
 - `src/theme/ThemePreferenceProvider.tsx`: dark-mode default + persisted user preference.
 - `src/utils/timeline.ts`: vertical timeline model builder (segments, compression, lane assignment).
 - `src/utils/preview.ts`: JSONL preview parsing into readable chat cards.
@@ -42,3 +43,9 @@ bun run typecheck
   - add/remove tracking actions
 - Header shows CardinalDiff heartbeat (`healthy`/`stale`/`offline`).
 - `Events` page supports project + datetime-range event stream browsing.
+- `Jira` page supports:
+  - project list and ticket list browsing
+  - cache-aware refresh and force-refresh
+  - adding ticket comments
+  - moving ticket status via transitions
+  - creating tickets with optional target status

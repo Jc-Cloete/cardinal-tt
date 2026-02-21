@@ -12,6 +12,7 @@ Scope: `client`
 - Inspecting filtered preview messages in a modal
 - Managing CardinalDiff tracking status and heartbeat visibility
 - Browsing cardinal event streams by project/time range
+- Managing Jira projects/issues, comments, transitions, and ticket creation
 
 ## 2. Non-Goals
 
@@ -30,6 +31,12 @@ Scope: `client`
    - project selector
    - day/from/to/limit controls
    - chronological event list
+3. Jira page:
+   - project selector
+   - ticket list for selected project
+   - comment/status actions on selected ticket
+   - ticket creation form
+   - cache refresh/force-refresh controls
 
 ## 4. Data Dependencies
 
@@ -37,6 +44,7 @@ All data is read via `fetch` from `server` APIs:
 
 - Session explorer endpoints under `/api/*`
 - Cardinal endpoints under `/api/cardinal/*`
+- Jira endpoints under `/api/jira/*`
 
 No mock or offline mode is currently part of the production contract.
 
@@ -83,11 +91,19 @@ Timeline must be vertical and support:
 - User can toggle dark/light.
 - Preference persists in `localStorage`.
 
+### 5.6 Jira behavior
+
+- Jira page must support project list and issue list browsing.
+- Jira mutations must update UI immediately by reloading affected issue lists.
+- Jira list views should show cache source/sync metadata when provided by API.
+- Force refresh controls must bypass local cache and trigger remote sync via server.
+
 ## 6. State Management Contract
 
 - Conversation explorer state is managed in `useConversationExplorer`.
 - Cardinal tracking/heartbeat state is managed in `useCardinalStatus`.
 - Cardinal diff compare state is managed in `useCardinalDiff`.
+- Jira state/actions are managed in `useJira`.
 - Hooks must avoid stale closure behavior and follow exhaustive dependency rules.
 
 ## 7. Error Handling
@@ -96,6 +112,7 @@ Timeline must be vertical and support:
   - empty lists or cleared sections instead of crashes.
 - Invalid/empty payloads should not break rendering.
 - Preview fetch failures should clear preview content and keep UI interactive.
+- Jira errors should remain non-fatal and keep the page interactive.
 
 ## 8. Accessibility and Quality
 
@@ -118,6 +135,7 @@ Minimum required client tests:
   - overlap lane assignment scenarios
   - cross-day segment ranges
   - fallback display labels for unknown roles/projects
+  - Jira selection fallback when selected project/issue is no longer present
 
 ## 10. Change Management
 

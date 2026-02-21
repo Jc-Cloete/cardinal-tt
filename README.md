@@ -69,6 +69,8 @@ Common variables:
 - `DATA_ROOT` (session source root)
 - `CACHE_DB_PATH` (sqlite path for cache/cardinal data)
 - `CONVERSATION_BREAK_LIMIT` (minutes, default `10`)
+- `JIRA_BASE_URL`, plus auth (`JIRA_AUTH_TOKEN` or `JIRA_EMAIL` + `JIRA_API_TOKEN`)
+- `JIRA_PROJECTS_CACHE_TTL_MS`, `JIRA_ISSUES_CACHE_TTL_MS`
 
 ## Current Feature Set
 
@@ -79,4 +81,29 @@ Common variables:
 - CardinalDiff project tracking controls in preview modal.
 - CardinalDiff heartbeat health indicator.
 - Cardinal events page with date/time range filtering.
+- Jira workbench page (projects, tickets, comments, status transitions, ticket creation).
 - Force-refresh option to bypass cached session parsing.
+- CardinalDiff scans that honor both `.cardinaldiffignore` and layered `.gitignore` rules.
+
+## CardinalDiff Maintenance
+
+List tracked projects:
+
+```bash
+cd cardinal-diff
+bun run start projects list
+```
+
+Reprocess one tracked project (rebuilds index snapshot and clears stale history for that project):
+
+```bash
+cd cardinal-diff
+bun run start projects reprocess <project_id>
+```
+
+If the agent is currently active and you intentionally want to reprocess anyway:
+
+```bash
+cd cardinal-diff
+bun run start projects reprocess <project_id> --allow-active-agent
+```
