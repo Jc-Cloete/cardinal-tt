@@ -1,4 +1,4 @@
-import {ALL_PROJECTS, UNKNOWN_PROJECT} from '../constants'
+import { ALL_PROJECTS, UNKNOWN_PROJECT } from '../constants'
 
 export const getProjectDisplayName = (value?: string): string => {
   if (value === ALL_PROJECTS) {

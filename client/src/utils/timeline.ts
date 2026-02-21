@@ -6,9 +6,18 @@ import {
   TIMELINE_PX_PER_HOUR,
   TIMELINE_SECTION_PADDING_MINUTES,
 } from '../constants'
-import type {RawTimelineItem, SessionFile, TimelineGap, TimelineItem, TimelineModel, TimelineSection, TimelineTick} from '../types'
-import {formatDuration, formatTime, getDayBounds, parseTimeMs} from './date'
+import type {
+  RawTimelineItem,
+  SessionFile,
+  TimelineGap,
+  TimelineItem,
+  TimelineModel,
+  TimelineSection,
+  TimelineTick,
+} from '../types'
+import { formatDuration, formatTime, getDayBounds, parseTimeMs } from './date'
 
+// Build a vertical timeline model with idle-gap compression + overlap lanes.
 export const buildCompressedTimeline = (
   files: SessionFile[],
   year: string,
@@ -19,9 +28,10 @@ export const buildCompressedTimeline = (
   const fallback = getDayBounds(year, month, day)
   const rawSegments: RawTimelineItem[] = files
     .flatMap((session, fileIndex) => {
-      const segments = Array.isArray(session?.segments) && session.segments.length > 0
-        ? session.segments
-        : [{startedAt: session?.startedAt, endedAt: session?.endedAt}]
+      const segments =
+        Array.isArray(session?.segments) && session.segments.length > 0
+          ? session.segments
+          : [{ startedAt: session?.startedAt, endedAt: session?.endedAt }]
 
       return segments.map((segment, segmentIndex) => {
         const fallbackMs = parseTimeMs(session?.modifiedAt)
@@ -61,11 +71,13 @@ export const buildCompressedTimeline = (
 
   const splitGapMinutes = Math.max(
     TIMELINE_IDLE_GAP_SPLIT_MINUTES,
-    Number.isFinite(conversationBreakLimit) ? conversationBreakLimit : TIMELINE_IDLE_GAP_SPLIT_MINUTES,
+    Number.isFinite(conversationBreakLimit)
+      ? conversationBreakLimit
+      : TIMELINE_IDLE_GAP_SPLIT_MINUTES,
   )
   const splitGapMs = splitGapMinutes * 60_000
   const sectionPaddingMs = TIMELINE_SECTION_PADDING_MINUTES * 60_000
-  const baseSections: Array<{startMs: number; endMs: number; items: RawTimelineItem[]}> = []
+  const baseSections: Array<{ startMs: number; endMs: number; items: RawTimelineItem[] }> = []
 
   for (const segment of rawSegments) {
     const current = baseSections[baseSections.length - 1]
@@ -110,7 +122,10 @@ export const buildCompressedTimeline = (
     const displayEndMs = section.endMs + sectionPaddingMs
     const durationMs = Math.max(displayEndMs - displayStartMs, 30 * 60_000)
     const durationHours = durationMs / 3_600_000
-    const sectionHeightPx = Math.max(TIMELINE_MIN_SECTION_HEIGHT_PX, Math.ceil(durationHours * TIMELINE_PX_PER_HOUR))
+    const sectionHeightPx = Math.max(
+      TIMELINE_MIN_SECTION_HEIGHT_PX,
+      Math.ceil(durationHours * TIMELINE_PX_PER_HOUR),
+    )
 
     const tickStepMinutes = durationHours <= 6 ? 30 : durationHours <= 24 ? 60 : 120
     const tickStepMs = tickStepMinutes * 60_000
@@ -124,9 +139,10 @@ export const buildCompressedTimeline = (
 
       const dt = new Date(ms)
       const isMidnight = dt.getHours() === 0 && dt.getMinutes() === 0
-      const label = isMultiDay && isMidnight
-        ? dt.toLocaleDateString([], {month: '2-digit', day: '2-digit'})
-        : dt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
+      const label =
+        isMultiDay && isMidnight
+          ? dt.toLocaleDateString([], { month: '2-digit', day: '2-digit' })
+          : dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       const topPct = ((ms - displayStartMs) / durationMs) * 100
 
       ticks.push({
@@ -152,10 +168,7 @@ export const buildCompressedTimeline = (
 
       const rawHeightPct = ((clampedEnd - clampedStart) / durationMs) * 100
       const maxAvailablePct = Math.max(100 - topPct, MIN_BLOCK_PERCENT)
-      const heightPct = Math.min(
-        Math.max(rawHeightPct, minHeightPct),
-        maxAvailablePct,
-      )
+      const heightPct = Math.min(Math.max(rawHeightPct, minHeightPct), maxAvailablePct)
 
       return {
         ...item,
@@ -169,6 +182,7 @@ export const buildCompressedTimeline = (
     const laneEndPct: number[] = []
     const preferredLaneByConversation = new Map<string, number>()
     const visualGapPct = 0.3
+    // Stable lane preference keeps multi-part conversations visually aligned across a section.
     const laneAssigned = rawItems
       .sort((a, b) => a.topPct - b.topPct || a.heightPct - b.heightPct)
       .map((item) => {

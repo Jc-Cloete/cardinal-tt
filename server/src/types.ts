@@ -1,3 +1,5 @@
+import type { HashPolicy, JsonObject, ProjectMode } from 'cardinal-store'
+
 export type DirEntry = {
   name: string
   type: 'dir' | 'file'
@@ -43,16 +45,25 @@ export type ParsedSessionContent = {
   filteredContent: string
 }
 
-export type JsonRecord = Record<string, unknown>
+export type JsonRecord = JsonObject
 
 export type CardinalProject = {
   projectId: string
   name: string
   rootPath: string
   enabled: boolean
-  mode: string
-  hashPolicy: string
+  mode: ProjectMode
+  hashPolicy: HashPolicy
   updatedAt: string
+}
+
+export type CardinalHeartbeatStatus = {
+  healthy: boolean
+  staleAfterSeconds: number
+  secondsSinceHeartbeat: number | null
+  lastHeartbeatAt: string | null
+  projectCount: number | null
+  agentPid: number | null
 }
 
 export type CardinalCommit = {
@@ -71,8 +82,8 @@ export type CardinalCommitEntry = {
   relPath: string
   op: string
   oldRelPath: string | null
-  before: Record<string, unknown> | null
-  after: Record<string, unknown> | null
+  before: JsonObject | null
+  after: JsonObject | null
   blobBefore: string | null
   blobAfter: string | null
 }
@@ -82,8 +93,8 @@ export type CardinalFileHistoryEntry = {
   relPath: string
   op: string
   oldRelPath: string | null
-  before: Record<string, unknown> | null
-  after: Record<string, unknown> | null
+  before: JsonObject | null
+  after: JsonObject | null
   sequenceNo: number
   startedAtNs: number
   endedAtNs: number
@@ -99,8 +110,8 @@ export type CardinalDiffEntry = {
   relPath: string
   op: string
   oldRelPath: string | null
-  before: Record<string, unknown> | null
-  after: Record<string, unknown> | null
+  before: JsonObject | null
+  after: JsonObject | null
   blobBefore: string | null
   blobAfter: string | null
   diffKind: 'metadata' | 'text' | 'binary' | 'unavailable'

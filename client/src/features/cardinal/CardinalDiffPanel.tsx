@@ -1,6 +1,16 @@
-import {ReloadIcon} from '@radix-ui/react-icons'
-import {Badge, Button, Card, Flex, Heading, ScrollArea, Select, Separator, Text} from '@radix-ui/themes'
-import {useCardinalDiff} from './useCardinalDiff'
+import { ReloadIcon } from '@radix-ui/react-icons'
+import {
+  Badge,
+  Button,
+  Card,
+  Flex,
+  Heading,
+  ScrollArea,
+  Select,
+  Separator,
+  Text,
+} from '@radix-ui/themes'
+import { useCardinalDiff } from './useCardinalDiff'
 
 const formatNs = (value: number): string =>
   value > 0 ? new Date(Math.floor(value / 1_000_000)).toLocaleString() : '--'
@@ -21,7 +31,8 @@ export const CardinalDiffPanel = () => {
     refresh,
   } = useCardinalDiff()
 
-  const selectedProject = projects.find((project) => project.projectId === selectedProjectId) || null
+  const selectedProject =
+    projects.find((project) => project.projectId === selectedProjectId) || null
 
   return (
     <Card className="card">
@@ -47,13 +58,19 @@ export const CardinalDiffPanel = () => {
 
       {selectedProject ? (
         <Text as="p" size="2" className="empty">
-          Root: {selectedProject.rootPath} | Mode: {selectedProject.mode} | Hash policy: {selectedProject.hashPolicy}
+          Root: {selectedProject.rootPath} | Mode: {selectedProject.mode} | Hash policy:{' '}
+          {selectedProject.hashPolicy}
         </Text>
       ) : null}
 
       <Flex gap="2" align="center" mb="3" wrap="wrap">
-        <Text size="2" weight="bold">Compare from</Text>
-        <Select.Root value={compareFromCommitId || undefined} onValueChange={setCompareFromCommitId}>
+        <Text size="2" weight="bold">
+          Compare from
+        </Text>
+        <Select.Root
+          value={compareFromCommitId || undefined}
+          onValueChange={setCompareFromCommitId}
+        >
           <Select.Trigger placeholder="Older commit" />
           <Select.Content>
             {commits.map((commit) => (
@@ -63,7 +80,9 @@ export const CardinalDiffPanel = () => {
             ))}
           </Select.Content>
         </Select.Root>
-        <Text size="2" weight="bold">to</Text>
+        <Text size="2" weight="bold">
+          to
+        </Text>
         <Select.Root value={selectedCommitId || undefined} onValueChange={setSelectedCommitId}>
           <Select.Trigger placeholder="Newer commit" />
           <Select.Content>
@@ -78,11 +97,15 @@ export const CardinalDiffPanel = () => {
 
       <div className="cardinal-grid">
         <section className="cardinal-column">
-          <Text size="2" weight="bold">Commits</Text>
+          <Text size="2" weight="bold">
+            Commits
+          </Text>
           <ScrollArea type="auto" scrollbars="vertical" className="cardinal-scroll">
             <div className="cardinal-list">
               {commits.length === 0 ? (
-                <Text size="2" color="gray">No commits found.</Text>
+                <Text size="2" color="gray">
+                  No commits found.
+                </Text>
               ) : null}
               {commits.map((commit) => (
                 <button
@@ -95,7 +118,9 @@ export const CardinalDiffPanel = () => {
                     <strong>#{commit.sequenceNo}</strong>
                     <Badge color="cyan">{commit.changeCount} changes</Badge>
                   </span>
-                  <small>{formatNs(commit.startedAtNs)} - {formatNs(commit.endedAtNs)}</small>
+                  <small>
+                    {formatNs(commit.startedAtNs)} - {formatNs(commit.endedAtNs)}
+                  </small>
                 </button>
               ))}
             </div>
@@ -103,21 +128,32 @@ export const CardinalDiffPanel = () => {
         </section>
 
         <section className="cardinal-column">
-          <Text size="2" weight="bold">Entries</Text>
+          <Text size="2" weight="bold">
+            Entries
+          </Text>
           <Separator size="4" my="2" />
           <ScrollArea type="auto" scrollbars="vertical" className="cardinal-scroll">
             <div className="cardinal-list">
               {selectedCommitId && commitEntries.length === 0 ? (
-                <Text size="2" color="gray">No entries for selected commit.</Text>
+                <Text size="2" color="gray">
+                  No entries for selected commit.
+                </Text>
               ) : null}
               {commitEntries.map((entry, index) => (
-                <article key={`${entry.relPath}-${entry.op}-${index}`} className="cardinal-entry-item">
+                <article
+                  key={`${entry.relPath}-${entry.op}-${index}`}
+                  className="cardinal-entry-item"
+                >
                   <Flex align="center" gap="2" mb="1">
                     <Badge color="blue">{entry.op}</Badge>
-                    <Text size="2" weight="medium">{entry.relPath}</Text>
+                    <Text size="2" weight="medium">
+                      {entry.relPath}
+                    </Text>
                   </Flex>
                   {entry.oldRelPath ? (
-                    <Text as="div" size="1" color="gray">from: {entry.oldRelPath}</Text>
+                    <Text as="div" size="1" color="gray">
+                      from: {entry.oldRelPath}
+                    </Text>
                   ) : null}
                 </article>
               ))}
@@ -126,25 +162,44 @@ export const CardinalDiffPanel = () => {
         </section>
 
         <section className="cardinal-column">
-          <Text size="2" weight="bold">Range Diff</Text>
+          <Text size="2" weight="bold">
+            Range Diff
+          </Text>
           <Separator size="4" my="2" />
           <ScrollArea type="auto" scrollbars="vertical" className="cardinal-scroll">
             <div className="cardinal-list">
               {diffEntries.length === 0 ? (
-                <Text size="2" color="gray">No entries in selected commit range.</Text>
+                <Text size="2" color="gray">
+                  No entries in selected commit range.
+                </Text>
               ) : null}
               {diffEntries.map((entry, index) => (
-                <article key={`${entry.commitId}-${entry.relPath}-${index}`} className="cardinal-entry-item">
+                <article
+                  key={`${entry.commitId}-${entry.relPath}-${index}`}
+                  className="cardinal-entry-item"
+                >
                   <Flex align="center" gap="2" mb="1">
                     <Badge color="iris">#{entry.sequenceNo}</Badge>
                     <Badge color="blue">{entry.op}</Badge>
-                    <Badge color={entry.diffKind === 'text' ? 'green' : entry.diffKind === 'metadata' ? 'gray' : 'orange'}>
+                    <Badge
+                      color={
+                        entry.diffKind === 'text'
+                          ? 'green'
+                          : entry.diffKind === 'metadata'
+                            ? 'gray'
+                            : 'orange'
+                      }
+                    >
                       {entry.diffKind}
                     </Badge>
                   </Flex>
-                  <Text size="2" weight="medium">{entry.relPath}</Text>
+                  <Text size="2" weight="medium">
+                    {entry.relPath}
+                  </Text>
                   {entry.oldRelPath ? (
-                    <Text as="div" size="1" color="gray">from: {entry.oldRelPath}</Text>
+                    <Text as="div" size="1" color="gray">
+                      from: {entry.oldRelPath}
+                    </Text>
                   ) : null}
                 </article>
               ))}

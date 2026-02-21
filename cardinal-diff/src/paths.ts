@@ -11,6 +11,7 @@ import {
 
 const cwd = process.cwd()
 
+// Resolve workspace root robustly whether commands run from root or /cardinal-diff.
 export const repoRoot = cwd.endsWith(`${path.sep}cardinal-diff`)
   ? path.resolve(cwd, '..')
   : fs.existsSync(path.join(cwd, 'cardinal-diff'))
@@ -47,9 +48,7 @@ const resolveDefaultCacheDbPath = (): string => {
   return specDefaultDbPath
 }
 
-export const cacheDbPath = path.resolve(
-  process.env.CACHE_DB_PATH || resolveDefaultCacheDbPath(),
-)
+export const cacheDbPath = path.resolve(process.env.CACHE_DB_PATH || resolveDefaultCacheDbPath())
 
 const ensureDefaultConfig = (): void => {
   if (fs.existsSync(configPath)) {
@@ -90,13 +89,13 @@ const ensureIgnoreTemplate = (): void => {
 }
 
 export const ensureDirectories = (): void => {
-  fs.mkdirSync(dataDir, {recursive: true})
-  fs.mkdirSync(objectsDir, {recursive: true})
-  fs.mkdirSync(logsDir, {recursive: true})
-  fs.mkdirSync(projectsDir, {recursive: true})
-  fs.mkdirSync(indexDir, {recursive: true})
-  fs.mkdirSync(commitsDir, {recursive: true})
-  fs.mkdirSync(path.dirname(cacheDbPath), {recursive: true})
+  fs.mkdirSync(dataDir, { recursive: true })
+  fs.mkdirSync(objectsDir, { recursive: true })
+  fs.mkdirSync(logsDir, { recursive: true })
+  fs.mkdirSync(projectsDir, { recursive: true })
+  fs.mkdirSync(indexDir, { recursive: true })
+  fs.mkdirSync(commitsDir, { recursive: true })
+  fs.mkdirSync(path.dirname(cacheDbPath), { recursive: true })
   ensureDefaultConfig()
   ensureIgnoreTemplate()
 }

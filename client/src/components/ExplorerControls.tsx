@@ -1,7 +1,7 @@
-import {ReloadIcon} from '@radix-ui/react-icons'
-import {Button, Grid, Select, Text, TextField} from '@radix-ui/themes'
-import {UNKNOWN_PROJECT} from '../constants'
-import {getProjectDisplayName} from '../utils/display'
+import { ReloadIcon } from '@radix-ui/react-icons'
+import { Button, Grid, Select, Text, TextField } from '@radix-ui/themes'
+import { UNKNOWN_PROJECT } from '../constants'
+import { getProjectDisplayName } from '../utils/display'
 
 type ExplorerControlsProps = {
   years: string[]
@@ -40,46 +40,60 @@ export const ExplorerControls = ({
   onBreakLimitChange,
   onRefreshCache,
 }: ExplorerControlsProps) => (
-  <Grid columns={{initial: '1', sm: '2', lg: '3', xl: '6'}} gap="3" className="controls">
-    <label className="control-field">
+  <Grid columns={{ initial: '1', sm: '2', lg: '3', xl: '6' }} gap="3" className="controls">
+    <div className="control-field">
       <Text size="2">Year</Text>
       <Select.Root value={year || undefined} onValueChange={onYearChange}>
         <Select.Trigger placeholder="Select year" />
         <Select.Content>
           {years.map((item) => (
-            <Select.Item key={item} value={item}>{item}</Select.Item>
+            <Select.Item key={item} value={item}>
+              {item}
+            </Select.Item>
           ))}
         </Select.Content>
       </Select.Root>
-    </label>
+    </div>
 
-    <label className="control-field">
+    <div className="control-field">
       <Text size="2">Month</Text>
-      <Select.Root value={month || undefined} onValueChange={onMonthChange} disabled={!months.length}>
+      <Select.Root
+        value={month || undefined}
+        onValueChange={onMonthChange}
+        disabled={!months.length}
+      >
         <Select.Trigger placeholder="Select month" />
         <Select.Content>
           {months.map((item) => (
-            <Select.Item key={item} value={item}>{item}</Select.Item>
+            <Select.Item key={item} value={item}>
+              {item}
+            </Select.Item>
           ))}
         </Select.Content>
       </Select.Root>
-    </label>
+    </div>
 
-    <label className="control-field">
+    <div className="control-field">
       <Text size="2">Day</Text>
       <Select.Root value={day || undefined} onValueChange={onDayChange} disabled={!days.length}>
         <Select.Trigger placeholder="Select day" />
         <Select.Content>
           {days.map((item) => (
-            <Select.Item key={item} value={item}>{item}</Select.Item>
+            <Select.Item key={item} value={item}>
+              {item}
+            </Select.Item>
           ))}
         </Select.Content>
       </Select.Root>
-    </label>
+    </div>
 
-    <label className="control-field">
+    <div className="control-field">
       <Text size="2">Project Dir</Text>
-      <Select.Root value={project || undefined} onValueChange={onProjectChange} disabled={!projects.length}>
+      <Select.Root
+        value={project || undefined}
+        onValueChange={onProjectChange}
+        disabled={!projects.length}
+      >
         <Select.Trigger placeholder="Select project" />
         <Select.Content>
           {projects.map((item) => (
@@ -89,9 +103,9 @@ export const ExplorerControls = ({
           ))}
         </Select.Content>
       </Select.Root>
-    </label>
+    </div>
 
-    <label className="control-field">
+    <div className="control-field">
       <Text size="2">conversation_break_limit (minutes)</Text>
       <TextField.Root
         type="number"
@@ -100,7 +114,7 @@ export const ExplorerControls = ({
         value={String(conversationBreakLimit)}
         onChange={(event) => onBreakLimitChange(event.target.value)}
       />
-    </label>
+    </div>
 
     <div className="controls-actions">
       <Button

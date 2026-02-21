@@ -1,23 +1,30 @@
-import {
-  installLaunchAgent,
-  runAgent,
-  uninstallLaunchAgent,
-} from './agent'
-import {buildRangeDiffEntries} from './diff'
+import { installLaunchAgent, runAgent, uninstallLaunchAgent } from './agent'
+import { buildRangeDiffEntries } from './diff'
+import { diffLogger } from './observability'
 import {
   addProjectService,
   getCommitDetailsService,
-  getProjectService,
   getFileHistoryService,
+  getProjectService,
   listCommitRangeEntriesService,
   listCommitsService,
   listProjectsService,
   removeProjectService,
   runDoctorService,
 } from './service'
-import type {HashPolicy, ProjectMode} from './types'
+import type { HashPolicy, JsonValue, ProjectMode } from './types'
 
-const printJson = (value: unknown): void => {
+const cliLogger = diffLogger.child({ component: 'cli' })
+
+// CLI output is always JSON to keep tooling integrations stable.
+const printJson = (value: JsonValue): void => {
+  cliLogger.log({
+    event: 'cardinal.diff.cli.output.json',
+    level: 'debug',
+    fields: {
+      top_level_type: Array.isArray(value) ? 'array' : typeof value,
+    },
+  })
   console.log(JSON.stringify(value, null, 2))
 }
 
@@ -63,7 +70,13 @@ const parseTimeToNs = (value: string | undefined): number | undefined => {
 }
 
 const usage = (): void => {
-  console.log(`
+  cliLogger.log({
+    event: 'cardinal.diff.cli.usage.print',
+    level: 'warn',
+    fields: {},
+  })
+  console.log(
+    `
 cardinaldiff commands:
   projects list
   projects add --path <dir> [--name <name>] [--mode metadata|content] [--hash-policy off|on_change]
@@ -76,13 +89,20 @@ cardinaldiff commands:
   agent run
   agent install
   agent uninstall
-`.trim())
+`.trim(),
+  )
 }
 
 const runProjects = async (args: string[]): Promise<void> => {
+  cliLogger.log({
+    event: 'cardinal.diff.cli.projects.command',
+    fields: {
+      args: args.join(' '),
+    },
+  })
   const action = args[0]
   if (action === 'list') {
-    printJson({projects: listProjectsService()})
+    printJson({ projects: listProjectsService() })
     return
   }
 
@@ -98,8 +118,8 @@ const runProjects = async (args: string[]): Promise<void> => {
     const hashPolicyRaw = readOption(args, '--hash-policy')
     const hashPolicy: HashPolicy = hashPolicyRaw === 'on_change' ? 'on_change' : 'off'
     const name = readOption(args, '--name')
-    const project = addProjectService({rootPath, name, mode, hashPolicy})
-    printJson({project})
+    const project = addProjectService({ rootPath, name, mode, hashPolicy })
+    printJson({ project })
     return
   }
 
@@ -110,7 +130,7 @@ const runProjects = async (args: string[]): Promise<void> => {
     }
 
     removeProjectService(projectId)
-    printJson({ok: true, projectId})
+    printJson({ ok: true, projectId })
     return
   }
 
@@ -118,6 +138,12 @@ const runProjects = async (args: string[]): Promise<void> => {
 }
 
 const runCommits = async (args: string[]): Promise<void> => {
+  cliLogger.log({
+    event: 'cardinal.diff.cli.commits.command',
+    fields: {
+      args: args.join(' '),
+    },
+  })
   const action = args[0]
   if (action !== 'list') {
     throw new Error(`Unknown commits command: ${action || '<empty>'}`)
@@ -138,10 +164,16 @@ const runCommits = async (args: string[]): Promise<void> => {
     limit: readIntOption(args, '--limit'),
   })
 
-  printJson({commits})
+  printJson({ commits })
 }
 
 const runCommit = async (args: string[]): Promise<void> => {
+  cliLogger.log({
+    event: 'cardinal.diff.cli.commit.command',
+    fields: {
+      args: args.join(' '),
+    },
+  })
   const action = args[0]
   if (action !== 'show') {
     throw new Error(`Unknown commit command: ${action || '<empty>'}`)
@@ -161,6 +193,12 @@ const runCommit = async (args: string[]): Promise<void> => {
 }
 
 const runFile = async (args: string[]): Promise<void> => {
+  cliLogger.log({
+    event: 'cardinal.diff.cli.file.command',
+    fields: {
+      args: args.join(' '),
+    },
+  })
   const action = args[0]
   if (action !== 'history') {
     throw new Error(`Unknown file command: ${action || '<empty>'}`)
@@ -177,10 +215,16 @@ const runFile = async (args: string[]): Promise<void> => {
     relPath,
     limit: readIntOption(args, '--limit'),
   })
-  printJson({history})
+  printJson({ history })
 }
 
 const runDiff = async (args: string[]): Promise<void> => {
+  cliLogger.log({
+    event: 'cardinal.diff.cli.diff.command',
+    fields: {
+      args: args.join(' '),
+    },
+  })
   const projectId = readOption(args, '--project')
   const fromCommitId = readOption(args, '--from')
   const toCommitId = readOption(args, '--to')
@@ -233,6 +277,12 @@ const runDiff = async (args: string[]): Promise<void> => {
 }
 
 const runDoctor = async (args: string[]): Promise<void> => {
+  cliLogger.log({
+    event: 'cardinal.diff.cli.doctor.command',
+    fields: {
+      args: args.join(' '),
+    },
+  })
   const projectId = readOption(args, '--project')
   if (!projectId) {
     throw new Error('Missing --project')
@@ -246,6 +296,12 @@ const runDoctor = async (args: string[]): Promise<void> => {
 }
 
 const runAgentCommand = async (args: string[]): Promise<void> => {
+  cliLogger.log({
+    event: 'cardinal.diff.cli.agent.command',
+    fields: {
+      args: args.join(' '),
+    },
+  })
   const action = args[0]
   if (action === 'run') {
     await runAgent()
@@ -267,6 +323,13 @@ const runAgentCommand = async (args: string[]): Promise<void> => {
 
 export const runCli = async (args: string[]): Promise<void> => {
   try {
+    cliLogger.log({
+      event: 'cardinal.diff.cli.run.start',
+      fields: {
+        args: args.join(' '),
+      },
+    })
+
     const scope = args[0]
     const remainder = args.slice(1)
 
@@ -313,8 +376,18 @@ export const runCli = async (args: string[]): Promise<void> => {
     throw new Error(`Unknown command scope: ${scope}`)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    cliLogger.log({
+      event: 'cardinal.diff.cli.run.failed',
+      level: 'error',
+      outcome: 'error',
+      error: error instanceof Error ? error : String(error),
+      fields: {
+        args: args.join(' '),
+      },
+    })
     console.error(`cardinaldiff error: ${message}`)
     usage()
     process.exitCode = 1
+    return
   }
 }

@@ -1,5 +1,5 @@
-import {Theme} from '@radix-ui/themes'
-import {createContext, useContext, useEffect, useMemo, useState, type ReactNode} from 'react'
+import { Theme } from '@radix-ui/themes'
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react'
 
 type ThemeMode = 'dark' | 'light'
 
@@ -28,7 +28,7 @@ type ThemePreferenceProviderProps = {
   children: ReactNode
 }
 
-export const ThemePreferenceProvider = ({children}: ThemePreferenceProviderProps) => {
+export const ThemePreferenceProvider = ({ children }: ThemePreferenceProviderProps) => {
   const [mode, setMode] = useState<ThemeMode>(() => readStoredTheme())
 
   useEffect(() => {
@@ -47,13 +47,7 @@ export const ThemePreferenceProvider = ({children}: ThemePreferenceProviderProps
 
   return (
     <ThemePreferenceContext.Provider value={value}>
-      <Theme
-        appearance={mode}
-        accentColor="cyan"
-        grayColor="slate"
-        radius="medium"
-        scaling="100%"
-      >
+      <Theme appearance={mode} accentColor="cyan" grayColor="slate" radius="medium" scaling="100%">
         {children}
       </Theme>
     </ThemePreferenceContext.Provider>

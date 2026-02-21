@@ -1,3 +1,5 @@
+import type { JsonObject } from '../../types'
+
 export type CardinalProject = {
   projectId: string
   name: string
@@ -24,8 +26,8 @@ export type CardinalCommitEntry = {
   relPath: string
   op: string
   oldRelPath: string | null
-  before: Record<string, unknown> | null
-  after: Record<string, unknown> | null
+  before: JsonObject | null
+  after: JsonObject | null
   blobBefore: string | null
   blobAfter: string | null
 }
@@ -51,8 +53,8 @@ export type CardinalDiffEntry = {
   relPath: string
   op: string
   oldRelPath: string | null
-  before: Record<string, unknown> | null
-  after: Record<string, unknown> | null
+  before: JsonObject | null
+  after: JsonObject | null
   blobBefore: string | null
   blobAfter: string | null
   diffKind: 'metadata' | 'text' | 'binary' | 'unavailable'
@@ -66,4 +68,30 @@ export type CardinalDiffResponse = {
   toCommit: CardinalCommit
   entryCount: number
   entries: CardinalDiffEntry[]
+}
+
+export type CardinalHeartbeat = {
+  healthy: boolean
+  staleAfterSeconds: number
+  secondsSinceHeartbeat: number | null
+  lastHeartbeatAt: string | null
+  projectCount: number | null
+  agentPid: number | null
+}
+
+export type CardinalHeartbeatResponse = {
+  heartbeat: CardinalHeartbeat
+}
+
+export type CardinalProjectByRootResponse = {
+  project: CardinalProject | null
+}
+
+export type CardinalProjectMutationResponse = {
+  project: CardinalProject
+  created?: boolean
+}
+
+export type CardinalEventsResponse = {
+  events: CardinalDiffEntry[]
 }

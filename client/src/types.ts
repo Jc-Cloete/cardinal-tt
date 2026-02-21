@@ -1,3 +1,7 @@
+export type JsonPrimitive = string | number | boolean | null
+export type JsonValue = JsonPrimitive | JsonObject | JsonValue[]
+export type JsonObject = { [key: string]: JsonValue }
+
 export interface RootResponse {
   root: string
   conversation_break_limit?: number

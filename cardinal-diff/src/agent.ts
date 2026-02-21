@@ -1,15 +1,19 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import {constants, getInfo, watch} from 'fsevents'
-import {mergePendingChanges} from './pending-buffer'
-import {launchAgentPlistPath, logsDir, repoRoot} from './paths'
+import { constants, getInfo, watch } from 'fsevents'
+import { recordHeartbeat } from './db'
+import { diffLogger } from './observability'
+import { launchAgentPlistPath, logsDir, repoRoot } from './paths'
+import { mergePendingChanges } from './pending-buffer'
 import {
   listProjectsService,
   loadProjectRuntime,
   persistProjectBatch,
   scanProjectDelta,
 } from './service'
-import type {ChangedEntry, IndexEntry, ProjectConfig, ScanStats} from './types'
+import type { ChangedEntry, IndexEntry, ProjectConfig, ScanStats } from './types'
+
+const agentLogger = diffLogger.child({ component: 'agent' })
 
 type ProjectRuntimeState = {
   project: ProjectConfig
@@ -42,7 +46,6 @@ const addStats = (left: ScanStats, right: ScanStats): ScanStats => ({
 })
 
 const nowNs = (): number => Date.now() * 1_000_000
-
 const toPosixPath = (value: string): string => value.split(path.sep).join('/')
 
 const formatDateTimeNs = (value: number): string =>
@@ -66,17 +69,18 @@ const clearTimers = (state: ProjectRuntimeState): void => {
   }
 }
 
-const parseStartCursor = (cursor: string | null): {since: number; fullRescan: boolean} => {
+// Recover from stored cursors while handling invalid values safely.
+const parseStartCursor = (cursor: string | null): { since: number; fullRescan: boolean } => {
   if (!cursor) {
-    return {since: 0, fullRescan: false}
+    return { since: 0, fullRescan: false }
   }
 
   const parsed = Number.parseInt(cursor, 10)
   if (!Number.isFinite(parsed) || parsed < 0) {
-    return {since: 0, fullRescan: true}
+    return { since: 0, fullRescan: true }
   }
 
-  return {since: parsed, fullRescan: false}
+  return { since: parsed, fullRescan: false }
 }
 
 const createProjectState = (project: ProjectConfig): ProjectRuntimeState | null => {
@@ -94,7 +98,7 @@ const createProjectState = (project: ProjectConfig): ProjectRuntimeState | null 
     firstCursor: null,
     lastCursor: runtime.project.lastEventCursor,
     dirtyPaths: new Set(),
-    fullRescan: startCursor.fullRescan,
+    fullRescan: startCursor.fullRescan || runtime.index.size === 0,
     scanStats: zeroStats(),
     scanTimer: null,
     flushIdleTimer: null,
@@ -149,13 +153,15 @@ const normalizeDirtyPath = (relPath: string, eventType: string): string => {
 const shouldForceFullRescan = (flags: number): boolean =>
   Boolean(
     flags & constants.MustScanSubDirs ||
-    flags & constants.UserDropped ||
-    flags & constants.KernelDropped ||
-    flags & constants.EventIdsWrapped ||
-    flags & constants.RootChanged,
+      flags & constants.UserDropped ||
+      flags & constants.KernelDropped ||
+      flags & constants.EventIdsWrapped ||
+      flags & constants.RootChanged,
   )
 
 const runScan = async (state: ProjectRuntimeState): Promise<void> => {
+  const startedAt = Date.now()
+
   if (state.scanInProgress) {
     state.scanRequestedAgain = true
     return
@@ -179,8 +185,37 @@ const runScan = async (state: ProjectRuntimeState): Promise<void> => {
     state.scanStats = addStats(state.scanStats, result.scanStats)
     state.fullRescan = false
     state.dirtyPaths.clear()
+
+    agentLogger.log({
+      event: 'cardinal.diff.agent.scan.complete',
+      level: 'debug',
+      fields: {
+        project_id: state.project.projectId,
+        project_name: state.project.name,
+        full_rescan: false,
+        changes_detected: result.changes.length,
+        changed_scope_count: result.changedScopes.length,
+        pending_change_count: state.pendingChanges.size,
+        directories_scanned: result.scanStats.directoriesScanned,
+        files_scanned: result.scanStats.filesScanned,
+        scan_elapsed_ms: result.scanStats.elapsedMs,
+        duration_ms: Date.now() - startedAt,
+      },
+    })
   } catch (error) {
-    console.error(`[cardinaldiff] scan failed project=${state.project.name}`, error)
+    agentLogger.log({
+      event: 'cardinal.diff.agent.scan.failed',
+      level: 'error',
+      outcome: 'error',
+      error: error instanceof Error ? error : String(error),
+      fields: {
+        project_id: state.project.projectId,
+        project_name: state.project.name,
+        full_rescan: state.fullRescan,
+        dirty_path_count: state.dirtyPaths.size,
+        duration_ms: Date.now() - startedAt,
+      },
+    })
     state.fullRescan = true
   } finally {
     state.scanInProgress = false
@@ -194,12 +229,24 @@ const runScan = async (state: ProjectRuntimeState): Promise<void> => {
   }
 }
 
+// Flush coalesced changes as a single immutable commit batch.
 const flushProject = async (state: ProjectRuntimeState): Promise<void> => {
+  const startedAt = Date.now()
   await runScan(state)
 
   if (state.pendingStartNs === null) {
     clearTimers(state)
     state.scanStats = zeroStats()
+    agentLogger.log({
+      event: 'cardinal.diff.agent.flush.skip',
+      level: 'debug',
+      fields: {
+        project_id: state.project.projectId,
+        project_name: state.project.name,
+        reason: 'no_pending_window',
+        duration_ms: Date.now() - startedAt,
+      },
+    })
     return
   }
 
@@ -216,9 +263,33 @@ const flushProject = async (state: ProjectRuntimeState): Promise<void> => {
   })
 
   if (commit) {
-    console.log(
-      `[cardinaldiff] commit #${commit.sequenceNo} (${commit.changeCount} changes) project=${state.project.name} ${formatDateTimeNs(commit.startedAtNs)} -> ${formatDateTimeNs(commit.endedAtNs)}`,
-    )
+    agentLogger.log({
+      event: 'cardinal.diff.agent.flush.commit',
+      fields: {
+        project_id: state.project.projectId,
+        project_name: state.project.name,
+        commit_id: commit.commitId,
+        sequence_no: commit.sequenceNo,
+        change_count: commit.changeCount,
+        started_at: formatDateTimeNs(commit.startedAtNs),
+        ended_at: formatDateTimeNs(commit.endedAtNs),
+        pending_change_count: state.pendingChanges.size,
+        dirty_path_count: state.dirtyPaths.size,
+        duration_ms: Date.now() - startedAt,
+      },
+    })
+  } else {
+    agentLogger.log({
+      event: 'cardinal.diff.agent.flush.empty',
+      level: 'debug',
+      fields: {
+        project_id: state.project.projectId,
+        project_name: state.project.name,
+        pending_change_count: state.pendingChanges.size,
+        dirty_path_count: state.dirtyPaths.size,
+        duration_ms: Date.now() - startedAt,
+      },
+    })
   }
 
   state.pendingChanges.clear()
@@ -230,6 +301,17 @@ const flushProject = async (state: ProjectRuntimeState): Promise<void> => {
 
 const startProjectWatcher = (state: ProjectRuntimeState): void => {
   const parsed = parseStartCursor(state.project.lastEventCursor)
+  agentLogger.log({
+    event: 'cardinal.diff.agent.watcher.starting',
+    fields: {
+      project_id: state.project.projectId,
+      project_name: state.project.name,
+      root_path: state.project.rootPath,
+      since_cursor: state.project.lastEventCursor,
+      since_event_id: parsed.since,
+      full_rescan: parsed.fullRescan,
+    },
+  })
   const stop = watch(
     state.project.rootPath,
     parsed.since,
@@ -263,9 +345,24 @@ const startProjectWatcher = (state: ProjectRuntimeState): void => {
   )
 
   state.stopWatcher = stop
+  agentLogger.log({
+    event: 'cardinal.diff.agent.watcher.started',
+    fields: {
+      project_id: state.project.projectId,
+      project_name: state.project.name,
+      root_path: state.project.rootPath,
+    },
+  })
 }
 
 const stopProject = async (state: ProjectRuntimeState): Promise<void> => {
+  agentLogger.log({
+    event: 'cardinal.diff.agent.project.stop.requested',
+    fields: {
+      project_id: state.project.projectId,
+      project_name: state.project.name,
+    },
+  })
   try {
     await flushProject(state)
   } catch {
@@ -275,6 +372,13 @@ const stopProject = async (state: ProjectRuntimeState): Promise<void> => {
   if (state.stopWatcher) {
     state.stopWatcher()
   }
+  agentLogger.log({
+    event: 'cardinal.diff.agent.project.stopped',
+    fields: {
+      project_id: state.project.projectId,
+      project_name: state.project.name,
+    },
+  })
 }
 
 export const runAgent = async (): Promise<void> => {
@@ -282,31 +386,139 @@ export const runAgent = async (): Promise<void> => {
     throw new Error('cardinaldiff agent is only supported on macOS')
   }
 
-  fs.mkdirSync(logsDir, {recursive: true})
+  agentLogger.log({
+    event: 'cardinal.diff.agent.starting',
+    fields: {
+      pid: process.pid,
+      platform: process.platform,
+      node_env: process.env.NODE_ENV || 'development',
+    },
+  })
 
-  const projects = listProjectsService().filter((project) => project.enabled)
-  const states = projects
-    .map((project) => createProjectState(project))
-    .filter((state): state is ProjectRuntimeState => state !== null)
+  fs.mkdirSync(logsDir, { recursive: true })
 
-  for (const state of states) {
-    try {
-      startProjectWatcher(state)
-      if (state.fullRescan) {
-        state.pendingStartNs = nowNs()
-        scheduleScan(state, () => {
-          void runScan(state)
-        })
-        scheduleFlush(state, () => {
-          void flushProject(state)
-        })
-      }
-    } catch (error) {
-      console.error(`[cardinaldiff] failed to start watcher for ${state.project.name}`, error)
+  const states = new Map<string, ProjectRuntimeState>()
+
+  const scheduleInitialPass = (state: ProjectRuntimeState): void => {
+    if (!state.fullRescan) {
+      return
     }
+    state.pendingStartNs = state.pendingStartNs ?? nowNs()
+    scheduleScan(state, () => {
+      void runScan(state)
+    })
+    scheduleFlush(state, () => {
+      void flushProject(state)
+    })
   }
 
-  console.log(`[cardinaldiff] agent started for ${states.length} project(s)`)
+  const syncProjects = async (): Promise<void> => {
+    const startedAt = Date.now()
+    const enabledProjects = listProjectsService().filter((project) => project.enabled)
+    const nextIds = new Set(enabledProjects.map((project) => project.projectId))
+
+    for (const [projectId, state] of states.entries()) {
+      if (!nextIds.has(projectId)) {
+        await stopProject(state)
+        states.delete(projectId)
+        agentLogger.log({
+          event: 'cardinal.diff.agent.project.detached',
+          fields: {
+            project_id: projectId,
+            project_name: state.project.name,
+          },
+        })
+      }
+    }
+
+    for (const project of enabledProjects) {
+      if (states.has(project.projectId)) {
+        continue
+      }
+
+      const state = createProjectState(project)
+      if (!state) {
+        continue
+      }
+
+      try {
+        startProjectWatcher(state)
+        scheduleInitialPass(state)
+        states.set(project.projectId, state)
+        agentLogger.log({
+          event: 'cardinal.diff.agent.project.attached',
+          fields: {
+            project_id: state.project.projectId,
+            project_name: state.project.name,
+            root_path: state.project.rootPath,
+            initial_full_rescan: state.fullRescan,
+          },
+        })
+      } catch (error) {
+        agentLogger.log({
+          event: 'cardinal.diff.agent.project.attach_failed',
+          level: 'error',
+          outcome: 'error',
+          error: error instanceof Error ? error : String(error),
+          fields: {
+            project_id: state.project.projectId,
+            project_name: state.project.name,
+            root_path: state.project.rootPath,
+          },
+        })
+      }
+    }
+
+    agentLogger.log({
+      event: 'cardinal.diff.agent.sync.complete',
+      level: 'debug',
+      fields: {
+        enabled_project_count: enabledProjects.length,
+        active_state_count: states.size,
+        duration_ms: Date.now() - startedAt,
+      },
+    })
+  }
+
+  await syncProjects()
+
+  const heartbeatTimer = setInterval(() => {
+    recordHeartbeat({
+      projectCount: states.size,
+      agentPid: process.pid,
+    })
+    agentLogger.log({
+      event: 'cardinal.diff.agent.heartbeat',
+      fields: {
+        project_count: states.size,
+        agent_pid: process.pid,
+      },
+    })
+  }, 15_000)
+
+  const syncTimer = setInterval(() => {
+    void syncProjects()
+  }, 5_000)
+
+  recordHeartbeat({
+    projectCount: states.size,
+    agentPid: process.pid,
+  })
+  agentLogger.log({
+    event: 'cardinal.diff.agent.heartbeat',
+    fields: {
+      project_count: states.size,
+      agent_pid: process.pid,
+      initial: true,
+    },
+  })
+
+  agentLogger.log({
+    event: 'cardinal.diff.agent.started',
+    fields: {
+      project_count: states.size,
+    },
+  })
 
   await new Promise<void>((resolve) => {
     let stopping = false
@@ -315,10 +527,24 @@ export const runAgent = async (): Promise<void> => {
         return
       }
       stopping = true
+      agentLogger.log({
+        event: 'cardinal.diff.agent.stop_requested',
+        fields: {
+          project_count: states.size,
+        },
+      })
       void (async () => {
-        for (const state of states) {
+        clearInterval(heartbeatTimer)
+        clearInterval(syncTimer)
+        for (const state of states.values()) {
           await stopProject(state)
         }
+        agentLogger.log({
+          event: 'cardinal.diff.agent.stopped',
+          fields: {
+            project_count: states.size,
+          },
+        })
         resolve()
       })()
     }
@@ -344,23 +570,31 @@ const xmlEscape = (value: string): string =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&apos;')
 
-const getLaunchAgentProgram = (): {cwd: string; args: string[]} => ({
+const getLaunchAgentProgram = (): { cwd: string; args: string[] } => ({
   cwd: resolveAgentWorkingDirectory(),
   args: ['/usr/bin/env', 'bun', 'run', 'index.ts', 'agent', 'run'],
 })
 
 export const installLaunchAgent = (): void => {
-  const program = getLaunchAgentProgram()
-  fs.mkdirSync(path.dirname(launchAgentPlistPath), {recursive: true})
-  fs.mkdirSync(logsDir, {recursive: true})
-  const stdoutPath = path.join(logsDir, 'agent.log')
-  const stderrPath = path.join(logsDir, 'agent.error.log')
+  agentLogger.run(
+    {
+      event: 'cardinal.diff.agent.launch_agent.install',
+      fields: {
+        launch_agent_path: launchAgentPlistPath,
+      },
+    },
+    () => {
+      const program = getLaunchAgentProgram()
+      fs.mkdirSync(path.dirname(launchAgentPlistPath), { recursive: true })
+      fs.mkdirSync(logsDir, { recursive: true })
+      const stdoutPath = path.join(logsDir, 'agent.log')
+      const stderrPath = path.join(logsDir, 'agent.error.log')
 
-  const programArguments = program.args
-    .map((arg) => `    <string>${xmlEscape(arg)}</string>`)
-    .join('\n')
+      const programArguments = program.args
+        .map((arg) => `    <string>${xmlEscape(arg)}</string>`)
+        .join('\n')
 
-  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+      const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -384,15 +618,37 @@ ${programArguments}
 </plist>
 `
 
-  fs.writeFileSync(launchAgentPlistPath, plist, 'utf8')
-  console.log(`LaunchAgent written: ${launchAgentPlistPath}`)
-  console.log(`Load with: launchctl load ${launchAgentPlistPath}`)
+      fs.writeFileSync(launchAgentPlistPath, plist, 'utf8')
+      agentLogger.log({
+        event: 'cardinal.diff.agent.launch_agent.installed',
+        fields: {
+          launch_agent_path: launchAgentPlistPath,
+          load_command: `launchctl load ${launchAgentPlistPath}`,
+        },
+      })
+    },
+  )
 }
 
 export const uninstallLaunchAgent = (): void => {
-  if (fs.existsSync(launchAgentPlistPath)) {
-    fs.rmSync(launchAgentPlistPath, {force: true})
-  }
-  console.log(`LaunchAgent removed: ${launchAgentPlistPath}`)
-  console.log(`Unload (if loaded): launchctl unload ${launchAgentPlistPath}`)
+  agentLogger.run(
+    {
+      event: 'cardinal.diff.agent.launch_agent.uninstall',
+      fields: {
+        launch_agent_path: launchAgentPlistPath,
+      },
+    },
+    () => {
+      if (fs.existsSync(launchAgentPlistPath)) {
+        fs.rmSync(launchAgentPlistPath, { force: true })
+      }
+      agentLogger.log({
+        event: 'cardinal.diff.agent.launch_agent.uninstalled',
+        fields: {
+          launch_agent_path: launchAgentPlistPath,
+          unload_command: `launchctl unload ${launchAgentPlistPath}`,
+        },
+      })
+    },
+  )
 }

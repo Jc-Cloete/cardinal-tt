@@ -1,12 +1,12 @@
-import {createHash} from 'node:crypto'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import {objectsDir} from './paths'
+import { objectsDir } from './paths'
 
-const computeHash = (content: Buffer): string =>
-  createHash('sha256').update(content).digest('hex')
+const computeHash = (content: Buffer): string => createHash('sha256').update(content).digest('hex')
 
 const getObjectPath = (hash: string): string => {
+  // Two-level shard layout avoids oversized single directories.
   const shardA = hash.slice(0, 2)
   const shardB = hash.slice(2, 4)
   return path.join(objectsDir, shardA, shardB, `${hash}.blob`)
@@ -31,7 +31,7 @@ export const writeBlob = (content: Buffer): string => {
   const hash = computeHash(content)
   const filePath = getObjectPath(hash)
   if (!fs.existsSync(filePath)) {
-    fs.mkdirSync(path.dirname(filePath), {recursive: true})
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
     fs.writeFileSync(filePath, content)
   }
 
@@ -69,7 +69,7 @@ export const isLikelyText = (content: Buffer): boolean => {
   }
 
   try {
-    new TextDecoder('utf-8', {fatal: true}).decode(sample)
+    new TextDecoder('utf-8', { fatal: true }).decode(sample)
     return true
   } catch {
     return false

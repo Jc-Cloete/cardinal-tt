@@ -1,6 +1,7 @@
-import type {JsonRecord} from '../types'
-import {asRecord, asString} from '../utils/json'
+import type { JsonRecord } from '../types'
+import { asRecord, asString } from '../utils/json'
 
+// Extract project cwd from session metadata envelope.
 export const readProjectDirFromSessionMeta = (entry: JsonRecord): string | null => {
   if (asString(entry.type) !== 'session_meta') {
     return null
@@ -8,7 +9,7 @@ export const readProjectDirFromSessionMeta = (entry: JsonRecord): string | null 
 
   const payload = asRecord(entry.payload)
   const cwd = asString(payload?.cwd)
-  return cwd && cwd.trim() ? cwd.trim() : null
+  return cwd?.trim() ? cwd.trim() : null
 }
 
 const containsExcludedTagPair = (entry: JsonRecord): boolean => {
@@ -45,6 +46,7 @@ const containsExcludedTagPair = (entry: JsonRecord): boolean => {
 }
 
 export const shouldExcludePreviewEntry = (entry: JsonRecord): boolean => {
+  // Filter out internal transport/tooling frames so previews show user/assistant conversation content.
   const rootType = asString(entry.type)
   if (rootType === 'session_meta' || rootType === 'event_msg' || rootType === 'turn_context') {
     return true
@@ -54,11 +56,9 @@ export const shouldExcludePreviewEntry = (entry: JsonRecord): boolean => {
   const payloadType = asString(payload?.type)
   if (
     rootType === 'response_item' &&
-    (
-      payloadType === 'function_call' ||
+    (payloadType === 'function_call' ||
       payloadType === 'function_call_output' ||
-      payloadType === 'reasoning'
-    )
+      payloadType === 'reasoning')
   ) {
     return true
   }

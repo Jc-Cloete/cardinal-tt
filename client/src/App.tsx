@@ -1,17 +1,27 @@
-import {Flex, Heading, Text} from '@radix-ui/themes'
-import {useEffect, useMemo, useState} from 'react'
-import {ExplorerControls} from './components/ExplorerControls'
-import {PreviewModal} from './components/PreviewModal'
-import {ThemeToggle} from './components/ThemeToggle'
-import {TimelinePanel} from './components/TimelinePanel'
-import {CardinalDiffPanel} from './features/cardinal/CardinalDiffPanel'
-import {useConversationExplorer} from './hooks/useConversationExplorer'
-import type {SessionFile} from './types'
-import {getProjectDisplayName} from './utils/display'
-import {parsePreviewMessages} from './utils/preview'
-import {buildCompressedTimeline} from './utils/timeline'
+import { Button, Flex, Heading, Text } from '@radix-ui/themes'
+import { useEffect, useMemo, useState } from 'react'
+import { ExplorerControls } from './components/ExplorerControls'
+import { PreviewModal } from './components/PreviewModal'
+import { ThemeToggle } from './components/ThemeToggle'
+import { TimelinePanel } from './components/TimelinePanel'
+import { ALL_PROJECTS, UNKNOWN_PROJECT } from './constants'
+import { CardinalDiffPanel } from './features/cardinal/CardinalDiffPanel'
+import { CardinalEventsPage } from './features/cardinal/CardinalEventsPage'
+import { CardinalHeartbeatBadge } from './features/cardinal/CardinalHeartbeatBadge'
+import { useCardinalStatus } from './features/cardinal/useCardinalStatus'
+import { useConversationExplorer } from './hooks/useConversationExplorer'
+import { clientLogger } from './observability/logger'
+import type { SessionFile } from './types'
+import { getProjectDisplayName } from './utils/display'
+import { parsePreviewMessages } from './utils/preview'
+import { buildCompressedTimeline } from './utils/timeline'
+
+type AppPage = 'explorer' | 'events'
+
+const appLogger = clientLogger.child({ component: 'app' })
 
 export default function App() {
+  // Keep page-level orchestration in one place; data concerns live in dedicated hooks/features.
   const {
     rootDir,
     conversationBreakLimit,
@@ -36,6 +46,17 @@ export default function App() {
     updateConversationBreakLimit,
     refreshCache,
   } = useConversationExplorer()
+  const {
+    projects: trackedProjects,
+    heartbeat,
+    loading: cardinalLoading,
+    mutating: cardinalMutating,
+    getTrackedProjectByRootPath,
+    trackProject,
+    untrackProject,
+  } = useCardinalStatus()
+
+  const [page, setPage] = useState<AppPage>('explorer')
 
   const [expandedMessageIds, setExpandedMessageIds] = useState<Record<string, boolean>>({})
 
@@ -50,8 +71,40 @@ export default function App() {
     [files, activeFile],
   )
 
+  const activeProjectPath = useMemo(() => {
+    const candidate = activeSession?.projectDir || ''
+    if (!candidate || candidate === ALL_PROJECTS || candidate === UNKNOWN_PROJECT) {
+      return ''
+    }
+    return candidate
+  }, [activeSession?.projectDir])
+
+  const trackedProject = useMemo(
+    () => (activeProjectPath ? getTrackedProjectByRootPath(activeProjectPath) : null),
+    [activeProjectPath, getTrackedProjectByRootPath],
+  )
+
   useEffect(() => {
     setExpandedMessageIds({})
+  }, [])
+
+  useEffect(() => {
+    appLogger.log({
+      event: 'client.app.page.changed',
+      fields: {
+        page,
+      },
+    })
+  }, [page])
+
+  useEffect(() => {
+    appLogger.log({
+      event: 'client.app.preview.selection',
+      fields: {
+        active_file: activeFile || null,
+        has_active_file: Boolean(activeFile),
+      },
+    })
   }, [activeFile])
 
   useEffect(() => {
@@ -81,44 +134,69 @@ export default function App() {
       <Flex className="header" justify="between" align="start" gap="4">
         <div>
           <Heading size="8">Conversation Data Explorer</Heading>
-          <Text as="p" className="header-subtitle">Browsing: {rootDir || 'loading...'}</Text>
+          <Text as="p" className="header-subtitle">
+            Browsing: {rootDir || 'loading...'}
+          </Text>
+          <CardinalHeartbeatBadge heartbeat={heartbeat} />
         </div>
-        <ThemeToggle />
+        <Flex align="center" gap="2">
+          <Button
+            variant={page === 'explorer' ? 'solid' : 'soft'}
+            onClick={() => setPage('explorer')}
+          >
+            Explorer
+          </Button>
+          <Button variant={page === 'events' ? 'solid' : 'soft'} onClick={() => setPage('events')}>
+            Events
+          </Button>
+          <ThemeToggle />
+        </Flex>
       </Flex>
 
-      <ExplorerControls
-        years={years}
-        months={months}
-        days={days}
-        projects={projects}
-        year={year}
-        month={month}
-        day={day}
-        project={project}
-        conversationBreakLimit={conversationBreakLimit}
-        isRefreshingCache={isRefreshingCache}
-        onYearChange={setYear}
-        onMonthChange={setMonth}
-        onDayChange={setDay}
-        onProjectChange={setProject}
-        onBreakLimitChange={updateConversationBreakLimit}
-        onRefreshCache={refreshCache}
-      />
+      {page === 'explorer' ? (
+        <>
+          <ExplorerControls
+            years={years}
+            months={months}
+            days={days}
+            projects={projects}
+            year={year}
+            month={month}
+            day={day}
+            project={project}
+            conversationBreakLimit={conversationBreakLimit}
+            isRefreshingCache={isRefreshingCache}
+            onYearChange={setYear}
+            onMonthChange={setMonth}
+            onDayChange={setDay}
+            onProjectChange={setProject}
+            onBreakLimitChange={updateConversationBreakLimit}
+            onRefreshCache={refreshCache}
+          />
 
-      <TimelinePanel
-        day={day}
-        timelineModel={timelineModel}
-        activeFile={activeFile}
-        onSelectFile={setActiveFile}
-      />
+          <TimelinePanel
+            day={day}
+            timelineModel={timelineModel}
+            activeFile={activeFile}
+            onSelectFile={setActiveFile}
+          />
 
-      <CardinalDiffPanel />
+          <CardinalDiffPanel />
+        </>
+      ) : (
+        <CardinalEventsPage projects={trackedProjects} />
+      )}
 
       <PreviewModal
         isOpen={Boolean(activeFile)}
+        projectPath={activeProjectPath}
         projectLabel={getProjectDisplayName(activeSession?.projectDir)}
+        trackedProject={trackedProject}
+        trackingBusy={cardinalLoading || cardinalMutating}
         previewMessages={previewMessages}
         expandedMessageIds={expandedMessageIds}
+        onTrackProject={trackProject}
+        onUntrackProject={untrackProject}
         onClose={closePreview}
         onToggleMessage={toggleExpandedMessage}
       />

@@ -5,7 +5,9 @@
   "workspaces": [
     "server",
     "client",
-    "cardinal-diff"
+    "cardinal-diff",
+    "cardinal-store",
+    "cardinal-observability"
   ],
   "scripts": {
     "dev": "concurrently -n api,web,diff -c blue,green,magenta \"cd server && bun run dev\" \"cd client && bun run dev\" \"cd cardinal-diff && bun run dev\"",
@@ -13,9 +15,16 @@
     "dev:client": "cd client && bun run dev",
     "dev:diff": "cd cardinal-diff && bun run dev",
     "start": "cd server && bun run start",
-    "typecheck": "concurrently -n server,client,diff -c blue,green,magenta \"cd server && bun run typecheck\" \"cd client && bun run typecheck\" \"cd cardinal-diff && bun run typecheck\""
+    "typecheck": "concurrently -n server,client,diff,store -c blue,green,magenta,yellow \"cd server && bun run typecheck\" \"cd client && bun run typecheck\" \"cd cardinal-diff && bun run typecheck\" \"cd cardinal-store && bun run typecheck\"",
+    "biome:check": "biome check . --error-on-warnings",
+    "biome:fix": "biome check . --write --unsafe --error-on-warnings",
+    "lint": "concurrently -n root,server,client,diff,store -c white,blue,green,magenta,yellow \"bun run biome:check\" \"cd server && bun run lint\" \"cd client && bun run lint\" \"cd cardinal-diff && bun run lint\" \"cd cardinal-store && bun run lint\"",
+    "lint:fix": "concurrently -n root,server,client,diff,store -c white,blue,green,magenta,yellow \"bun run biome:fix\" \"cd server && bun run lint:fix\" \"cd client && bun run lint:fix\" \"cd cardinal-diff && bun run lint:fix\" \"cd cardinal-store && bun run lint:fix\"",
+    "test": "concurrently -n server,client,diff,store -c blue,green,magenta,yellow \"cd server && bun run test\" \"cd client && bun run test\" \"cd cardinal-diff && bun run test\" \"cd cardinal-store && bun run test\"",
+    "check": "bun run biome:check && bun run typecheck && bun run test"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.4",
     "concurrently": "^8.2.2"
   }
 }

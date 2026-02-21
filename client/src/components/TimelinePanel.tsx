@@ -1,7 +1,7 @@
-import {Card, Heading, Text} from '@radix-ui/themes'
-import type {TimelineModel} from '../types'
-import {formatTime} from '../utils/date'
-import {getProjectDisplayName} from '../utils/display'
+import { Card, Heading, Text } from '@radix-ui/themes'
+import type { TimelineModel } from '../types'
+import { formatTime } from '../utils/date'
+import { getProjectDisplayName } from '../utils/display'
 
 type TimelinePanelProps = {
   day: string
@@ -16,14 +16,26 @@ export const TimelinePanel = ({
   activeFile,
   onSelectFile,
 }: TimelinePanelProps) => (
+  // Renders precomputed timeline sections/ticks/lanes from buildCompressedTimeline().
   <section className="content content-single">
     <Card className="card">
-      <Heading size="6" mb="2">Conversations Timeline</Heading>
-      {!day ? <Text as="div" className="empty">Pick year, month, and day to view timeline.</Text> : null}
-      {day && !timelineModel.hasData ? <Text as="div" className="empty">No conversations found for this level.</Text> : null}
+      <Heading size="6" mb="2">
+        Conversations Timeline
+      </Heading>
+      {!day ? (
+        <Text as="div" className="empty">
+          Pick year, month, and day to view timeline.
+        </Text>
+      ) : null}
+      {day && !timelineModel.hasData ? (
+        <Text as="div" className="empty">
+          No conversations found for this level.
+        </Text>
+      ) : null}
       {timelineModel.rangeStartMs && timelineModel.rangeEndMs ? (
         <Text as="div" size="2" className="timeline-range">
-          Range: {formatTime(timelineModel.rangeStartMs, true)} to {formatTime(timelineModel.rangeEndMs, true)}
+          Range: {formatTime(timelineModel.rangeStartMs, true)} to{' '}
+          {formatTime(timelineModel.rangeEndMs, true)}
         </Text>
       ) : null}
       {timelineModel.sections.length > 0 ? (
@@ -33,23 +45,33 @@ export const TimelinePanel = ({
               <div key={section.id}>
                 {sectionIndex > 0 ? (
                   <div className="timeline-gap-marker">
-                    <span>Compressed idle gap: {timelineModel.gaps[sectionIndex - 1]?.durationLabel}</span>
+                    <span>
+                      Compressed idle gap: {timelineModel.gaps[sectionIndex - 1]?.durationLabel}
+                    </span>
                     <small>
-                      {timelineModel.gaps[sectionIndex - 1]?.fromLabel} to {timelineModel.gaps[sectionIndex - 1]?.toLabel}
+                      {timelineModel.gaps[sectionIndex - 1]?.fromLabel} to{' '}
+                      {timelineModel.gaps[sectionIndex - 1]?.toLabel}
                     </small>
                   </div>
                 ) : null}
-                <div className="timeline-shell" style={{minHeight: `${section.sectionHeightPx}px`}}>
+                <div
+                  className="timeline-shell"
+                  style={{ minHeight: `${section.sectionHeightPx}px` }}
+                >
                   <div className="timeline-axis">
                     {section.ticks.map((tick) => (
-                      <span key={tick.key} style={{top: `${tick.topPct}%`}}>
+                      <span key={tick.key} style={{ top: `${tick.topPct}%` }}>
                         {tick.label}
                       </span>
                     ))}
                   </div>
-                  <div className="timeline-vertical" style={{minHeight: `${section.sectionHeightPx}px`}}>
+                  <div
+                    className="timeline-vertical"
+                    style={{ minHeight: `${section.sectionHeightPx}px` }}
+                  >
                     {section.items.map((session) => (
                       <button
+                        type="button"
                         className={`timeline-block ${activeFile === session.name ? 'active' : ''}`}
                         style={{
                           top: `${session.topPct}%`,
@@ -62,10 +84,12 @@ export const TimelinePanel = ({
                         key={`${session.name}-${session.segmentIndex}-${section.id}`}
                       >
                         <span className="timeline-block-title">
-                          Conversation {session.conversationIndex} · Part {session.segmentIndex + 1}/{session.segmentCount}
+                          Conversation {session.conversationIndex} · Part {session.segmentIndex + 1}
+                          /{session.segmentCount}
                         </span>
                         <span className="timeline-block-subtitle">
-                          {session.startLabel} - {session.endLabel} · {getProjectDisplayName(session.projectDir)}
+                          {session.startLabel} - {session.endLabel} ·{' '}
+                          {getProjectDisplayName(session.projectDir)}
                         </span>
                       </button>
                     ))}

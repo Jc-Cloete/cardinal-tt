@@ -25,6 +25,11 @@ body {
   color: var(--gray-10);
 }
 
+.modal-subtitle {
+  margin: 2px 0 0;
+  color: var(--gray-10);
+}
+
 .controls {
   align-items: end;
 }
@@ -166,14 +171,13 @@ body {
   position: relative;
   border: 1px solid var(--gray-6);
   border-radius: 8px;
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      var(--gray-2) 0px,
-      var(--gray-2) 39px,
-      var(--gray-1) 39px,
-      var(--gray-1) 40px
-    );
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--gray-2) 0px,
+    var(--gray-2) 39px,
+    var(--gray-1) 39px,
+    var(--gray-1) 40px
+  );
 }
 
 .timeline-gap-marker {

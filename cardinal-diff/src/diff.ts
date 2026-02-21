@@ -1,18 +1,18 @@
-import {createPatch} from 'diff'
-import {isLikelyText, readBlob, readTextBlob} from './object-store'
-import type {CommitRangeEntry} from './service'
-import type {ProjectMode} from './types'
+import { createPatch } from 'diff'
+import { isLikelyText, readBlob, readTextBlob } from './object-store'
+import type { CommitRangeEntry } from './service'
+import type { JsonObject, JsonValue, ProjectMode } from './types'
 
 const MAX_PATCH_CHARS = 50_000
 
-const parseJson = (value: string | null): Record<string, unknown> | null => {
+const parseJson = (value: string | null): JsonObject | null => {
   if (!value) {
     return null
   }
   try {
-    const parsed = JSON.parse(value) as unknown
+    const parsed = JSON.parse(value) as JsonValue
     if (typeof parsed === 'object' && parsed !== null) {
-      return parsed as Record<string, unknown>
+      return parsed as JsonObject
     }
   } catch {
     return null
@@ -20,9 +20,9 @@ const parseJson = (value: string | null): Record<string, unknown> | null => {
   return null
 }
 
-const truncatePatch = (value: string): {patch: string; truncated: boolean} => {
+const truncatePatch = (value: string): { patch: string; truncated: boolean } => {
   if (value.length <= MAX_PATCH_CHARS) {
-    return {patch: value, truncated: false}
+    return { patch: value, truncated: false }
   }
   return {
     patch: `${value.slice(0, MAX_PATCH_CHARS)}\n... patch truncated ...\n`,
@@ -35,9 +35,9 @@ const toPatch = (
   oldRelPath: string | null,
   beforeText: string,
   afterText: string,
-): {patch: string; truncated: boolean} => {
+): { patch: string; truncated: boolean } => {
   const source = oldRelPath || relPath
-  const rendered = createPatch(relPath, beforeText, afterText, source, relPath, {context: 3})
+  const rendered = createPatch(relPath, beforeText, afterText, source, relPath, { context: 3 })
   return truncatePatch(rendered)
 }
 
@@ -51,8 +51,8 @@ export type DiffEntry = {
   relPath: string
   op: string
   oldRelPath: string | null
-  before: Record<string, unknown> | null
-  after: Record<string, unknown> | null
+  before: JsonObject | null
+  after: JsonObject | null
   blobBefore: string | null
   blobAfter: string | null
   diffKind: DiffEntryKind
@@ -65,8 +65,9 @@ type BuildRangeDiffInput = {
   entries: CommitRangeEntry[]
 }
 
-export const buildRangeDiffEntries = ({mode, entries}: BuildRangeDiffInput): DiffEntry[] =>
-  entries.map(({commit, entry}) => {
+export const buildRangeDiffEntries = ({ mode, entries }: BuildRangeDiffInput): DiffEntry[] =>
+  entries.map(({ commit, entry }) => {
+    // Start with metadata projection; content diffing is layered in for content mode.
     const base: DiffEntry = {
       commitId: commit.commitId,
       sequenceNo: commit.sequenceNo,
@@ -112,12 +113,7 @@ export const buildRangeDiffEntries = ({mode, entries}: BuildRangeDiffInput): Dif
       }
     }
 
-    const patchResult = toPatch(
-      entry.relPath,
-      entry.oldRelPath,
-      beforeText ?? '',
-      afterText ?? '',
-    )
+    const patchResult = toPatch(entry.relPath, entry.oldRelPath, beforeText ?? '', afterText ?? '')
     return {
       ...base,
       diffKind: 'text',

@@ -7,11 +7,16 @@
     "dev": "bun --watch index.ts agent run",
     "start": "bun run index.ts",
     "typecheck": "bunx tsc --noEmit",
+    "lint": "cd .. && biome check cardinal-diff --error-on-warnings",
+    "lint:fix": "cd .. && biome check cardinal-diff --write --unsafe --error-on-warnings",
+    "test": "bun test",
     "doctor": "bun run index.ts doctor",
     "agent:install": "./scripts/install-launch-agent.sh",
     "agent:uninstall": "./scripts/uninstall-launch-agent.sh"
   },
   "dependencies": {
+    "cardinal-observability": "workspace:*",
+    "cardinal-store": "workspace:*",
     "diff": "^8.0.3",
     "fsevents": "^2.3.3",
     "minimatch": "^10.0.3"

@@ -1,234 +1,494 @@
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
-import {Router, type Request, type Response} from 'express'
-import {ALL_PROJECTS, cacheDbPath, dataRoot} from '../config'
+import type { WideEventObject } from 'cardinal-observability'
+import { DEFAULT_IGNORE_PATTERNS, type HashPolicy, type ProjectMode } from 'cardinal-store'
+import { type Request, type Response, Router } from 'express'
 import {
+  addCardinalProject,
   getCardinalCommit,
   getCardinalCommitEntries,
   getCardinalDiffEntries,
   getCardinalFileHistory,
+  getCardinalHeartbeatStatus,
   getCardinalProject,
+  getCardinalProjectByRootPath,
   listCardinalCommits,
+  listCardinalEvents,
   listCardinalProjects,
+  removeCardinalProject,
 } from '../cache/cardinal-diff'
-import {getDaySessions, getFilteredFileContent} from '../services/session-service'
-import {readDir, resolveSafePath} from '../utils/fs-paths'
-import {getConversationBreakLimitMinutes, isForceRefresh} from '../utils/requests'
+import { ALL_PROJECTS, cacheDbPath, dataRoot } from '../config'
+import { getRequestFields, serverLogger } from '../observability/logger'
+import { getDaySessions, getFilteredFileContent } from '../services/session-service'
+import { readDir, resolveSafePath } from '../utils/fs-paths'
+import { getConversationBreakLimitMinutes, isForceRefresh } from '../utils/requests'
 
 export const apiRouter = Router()
 
-apiRouter.get('/root', (_req: Request, res: Response) => {
-  res.json({
-    root: dataRoot,
-    conversation_break_limit: getConversationBreakLimitMinutes(process.env.CONVERSATION_BREAK_LIMIT),
-    cache_db_path: cacheDbPath,
-  })
-})
+type RouteHandler = (req: Request, res: Response) => void | Promise<void>
 
-apiRouter.get('/years', (_req: Request, res: Response) => {
-  const years = readDir(dataRoot)
-    .filter((entry) => entry.type === 'dir')
-    .map((entry) => entry.name)
-    .sort()
+const instrumentRoute =
+  (event: string, handler: RouteHandler): RouteHandler =>
+  async (req, res) => {
+    const startedAt = Date.now()
+    const baseFields = getRequestFields(req)
+    const urlParts = req.originalUrl.split('?')
 
-  res.json({years})
-})
-
-apiRouter.get('/months', (req: Request, res: Response) => {
-  const year = String(req.query.year ?? '')
-  const yearDir = resolveSafePath(year)
-
-  if (!fs.existsSync(yearDir)) {
-    res.status(404).json({error: 'Year not found'})
-    return
+    try {
+      await handler(req, res)
+      serverLogger.log({
+        event,
+        level: res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info',
+        outcome: res.statusCode >= 400 ? 'error' : 'success',
+        fields: {
+          ...baseFields,
+          status_code: res.statusCode,
+          duration_ms: Date.now() - startedAt,
+          query_string: urlParts[1] || '',
+        },
+      })
+    } catch (error) {
+      serverLogger.log({
+        event,
+        level: 'error',
+        outcome: 'error',
+        error: error instanceof Error ? error : String(error),
+        fields: {
+          ...baseFields,
+          status_code: 500,
+          duration_ms: Date.now() - startedAt,
+          query_string: urlParts[1] || '',
+        },
+      })
+      throw error
+    }
   }
 
-  const months = readDir(yearDir)
-    .filter((entry) => entry.type === 'dir')
-    .map((entry) => entry.name)
-    .sort()
+const toRouteFields = (fields: WideEventObject): WideEventObject => fields
 
-  res.json({months})
-})
-
-apiRouter.get('/days', (req: Request, res: Response) => {
-  const year = String(req.query.year ?? '')
-  const month = String(req.query.month ?? '')
-  const dayDir = resolveSafePath(path.join(year, month))
-
-  if (!fs.existsSync(dayDir)) {
-    res.status(404).json({error: 'Day path not found'})
-    return
+// Merge default ignore rules with optional per-project overrides.
+const loadIgnoreRulesForProject = (rootPath: string): string[] => {
+  const ignoreFile = path.join(rootPath, '.cardinaldiffignore')
+  if (!fs.existsSync(ignoreFile)) {
+    return [...DEFAULT_IGNORE_PATTERNS]
   }
 
-  const days = readDir(dayDir)
-    .filter((entry) => entry.type === 'dir')
-    .map((entry) => entry.name)
-    .sort()
+  const customRules = fs
+    .readFileSync(ignoreFile, 'utf8')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('#'))
 
-  res.json({days})
-})
+  return [...DEFAULT_IGNORE_PATTERNS, ...customRules]
+}
 
-apiRouter.get('/projects', (req: Request, res: Response) => {
-  const year = String(req.query.year ?? '')
-  const month = String(req.query.month ?? '')
-  const day = String(req.query.day ?? '')
-  const dayPath = resolveSafePath(path.join(year, month, day))
+apiRouter.get(
+  '/root',
+  instrumentRoute('server.api.root.get', (_req: Request, res: Response) => {
+    res.json({
+      root: dataRoot,
+      conversation_break_limit: getConversationBreakLimitMinutes(
+        process.env.CONVERSATION_BREAK_LIMIT,
+      ),
+      cache_db_path: cacheDbPath,
+    })
+  }),
+)
 
-  if (!fs.existsSync(dayPath)) {
-    res.status(404).json({error: 'Path not found'})
-    return
-  }
+// Session explorer endpoints (source: ~/.codex/sessions or DATA_ROOT).
+apiRouter.get(
+  '/years',
+  instrumentRoute('server.api.years.list', (_req: Request, res: Response) => {
+    const years = readDir(dataRoot)
+      .filter((entry) => entry.type === 'dir')
+      .map((entry) => entry.name)
+      .sort()
 
-  const breakLimitMinutes = getConversationBreakLimitMinutes(
-    req.query.conversation_break_limit ?? process.env.CONVERSATION_BREAK_LIMIT,
-  )
-  const forceRefresh = isForceRefresh(req.query.refresh)
-  const sessions = getDaySessions(dayPath, breakLimitMinutes, forceRefresh)
-  const projects = Array.from(new Set(sessions.map((session) => session.projectDir))).sort((a, b) =>
-    a.localeCompare(b),
-  )
+    res.json({ years })
+  }),
+)
 
-  res.json({projects: [ALL_PROJECTS, ...projects]})
-})
+apiRouter.get(
+  '/months',
+  instrumentRoute('server.api.months.list', (req: Request, res: Response) => {
+    const year = String(req.query.year ?? '')
+    serverLogger.log({
+      event: 'server.api.months.query',
+      fields: toRouteFields({ year }),
+    })
+    const yearDir = resolveSafePath(year)
 
-apiRouter.get('/files', (req: Request, res: Response) => {
-  const year = String(req.query.year ?? '')
-  const month = String(req.query.month ?? '')
-  const day = String(req.query.day ?? '')
-  const project = String(req.query.project ?? ALL_PROJECTS)
-  const dayPath = resolveSafePath(path.join(year, month, day))
+    if (!fs.existsSync(yearDir)) {
+      res.status(404).json({ error: 'Year not found' })
+      return
+    }
 
-  if (!fs.existsSync(dayPath)) {
-    res.status(404).json({error: 'Path not found'})
-    return
-  }
+    const months = readDir(yearDir)
+      .filter((entry) => entry.type === 'dir')
+      .map((entry) => entry.name)
+      .sort()
 
-  const breakLimitMinutes = getConversationBreakLimitMinutes(
-    req.query.conversation_break_limit ?? process.env.CONVERSATION_BREAK_LIMIT,
-  )
-  const forceRefresh = isForceRefresh(req.query.refresh)
-  const sessions = getDaySessions(dayPath, breakLimitMinutes, forceRefresh)
-  const files =
-    project === ALL_PROJECTS
-      ? sessions
-      : sessions.filter((session) => session.projectDir === project)
+    res.json({ months })
+  }),
+)
 
-  res.json({files})
-})
+apiRouter.get(
+  '/days',
+  instrumentRoute('server.api.days.list', (req: Request, res: Response) => {
+    const year = String(req.query.year ?? '')
+    const month = String(req.query.month ?? '')
+    serverLogger.log({
+      event: 'server.api.days.query',
+      fields: toRouteFields({ year, month }),
+    })
+    const dayDir = resolveSafePath(path.join(year, month))
 
-apiRouter.get('/file', (req: Request, res: Response) => {
-  const year = String(req.query.year ?? '')
-  const month = String(req.query.month ?? '')
-  const day = String(req.query.day ?? '')
-  const file = String(req.query.file ?? '')
-  const filePath = resolveSafePath(path.join(year, month, day, file))
+    if (!fs.existsSync(dayDir)) {
+      res.status(404).json({ error: 'Day path not found' })
+      return
+    }
 
-  if (!fs.existsSync(filePath)) {
-    res.status(404).json({error: 'File not found'})
-    return
-  }
+    const days = readDir(dayDir)
+      .filter((entry) => entry.type === 'dir')
+      .map((entry) => entry.name)
+      .sort()
 
-  const forceRefresh = isForceRefresh(req.query.refresh)
-  const content = getFilteredFileContent(filePath, forceRefresh)
+    res.json({ days })
+  }),
+)
 
-  res.type('text/plain').send(content)
-})
+apiRouter.get(
+  '/projects',
+  instrumentRoute('server.api.projects.list', (req: Request, res: Response) => {
+    const year = String(req.query.year ?? '')
+    const month = String(req.query.month ?? '')
+    const day = String(req.query.day ?? '')
+    const dayPath = resolveSafePath(path.join(year, month, day))
 
-apiRouter.get('/cardinal/projects', (_req: Request, res: Response) => {
-  res.json({projects: listCardinalProjects()})
-})
+    if (!fs.existsSync(dayPath)) {
+      res.status(404).json({ error: 'Path not found' })
+      return
+    }
 
-apiRouter.get('/cardinal/commits', (req: Request, res: Response) => {
-  const projectId = String(req.query.project_id ?? '')
-  const rawSince = String(req.query.since_ns ?? '')
-  const rawUntil = String(req.query.until_ns ?? '')
-  const rawLimit = Number.parseInt(String(req.query.limit ?? '100'), 10)
-  const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 1000)) : 100
-  const sinceNs = rawSince ? Number.parseInt(rawSince, 10) : undefined
-  const untilNs = rawUntil ? Number.parseInt(rawUntil, 10) : undefined
+    const breakLimitMinutes = getConversationBreakLimitMinutes(
+      req.query.conversation_break_limit ?? process.env.CONVERSATION_BREAK_LIMIT,
+    )
+    const forceRefresh = isForceRefresh(req.query.refresh)
+    serverLogger.log({
+      event: 'server.api.projects.query',
+      fields: toRouteFields({
+        year,
+        month,
+        day,
+        break_limit_minutes: breakLimitMinutes,
+        force_refresh: forceRefresh,
+      }),
+    })
+    const sessions = getDaySessions(dayPath, breakLimitMinutes, forceRefresh)
+    const projects = Array.from(new Set(sessions.map((session) => session.projectDir))).sort(
+      (a, b) => a.localeCompare(b),
+    )
 
-  res.json({
-    commits: listCardinalCommits({
+    res.json({ projects: [ALL_PROJECTS, ...projects] })
+  }),
+)
+
+apiRouter.get(
+  '/files',
+  instrumentRoute('server.api.files.list', (req: Request, res: Response) => {
+    const year = String(req.query.year ?? '')
+    const month = String(req.query.month ?? '')
+    const day = String(req.query.day ?? '')
+    const project = String(req.query.project ?? ALL_PROJECTS)
+    const dayPath = resolveSafePath(path.join(year, month, day))
+
+    if (!fs.existsSync(dayPath)) {
+      res.status(404).json({ error: 'Path not found' })
+      return
+    }
+
+    const breakLimitMinutes = getConversationBreakLimitMinutes(
+      req.query.conversation_break_limit ?? process.env.CONVERSATION_BREAK_LIMIT,
+    )
+    const forceRefresh = isForceRefresh(req.query.refresh)
+    serverLogger.log({
+      event: 'server.api.files.query',
+      fields: toRouteFields({
+        year,
+        month,
+        day,
+        project,
+        break_limit_minutes: breakLimitMinutes,
+        force_refresh: forceRefresh,
+      }),
+    })
+    const sessions = getDaySessions(dayPath, breakLimitMinutes, forceRefresh)
+    const files =
+      project === ALL_PROJECTS
+        ? sessions
+        : sessions.filter((session) => session.projectDir === project)
+
+    res.json({ files })
+  }),
+)
+
+apiRouter.get(
+  '/file',
+  instrumentRoute('server.api.file.get', (req: Request, res: Response) => {
+    const year = String(req.query.year ?? '')
+    const month = String(req.query.month ?? '')
+    const day = String(req.query.day ?? '')
+    const file = String(req.query.file ?? '')
+    const filePath = resolveSafePath(path.join(year, month, day, file))
+
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: 'File not found' })
+      return
+    }
+
+    const forceRefresh = isForceRefresh(req.query.refresh)
+    serverLogger.log({
+      event: 'server.api.file.query',
+      fields: toRouteFields({
+        year,
+        month,
+        day,
+        file,
+        force_refresh: forceRefresh,
+      }),
+    })
+    const content = getFilteredFileContent(filePath, forceRefresh)
+
+    res.type('text/plain').send(content)
+  }),
+)
+
+// CardinalDiff-backed endpoints (source: ~/.cardinal-diff/index/cardinaldiff.sqlite).
+apiRouter.get(
+  '/cardinal/projects',
+  instrumentRoute('server.api.cardinal.projects.list', (_req: Request, res: Response) => {
+    res.json({ projects: listCardinalProjects() })
+  }),
+)
+
+apiRouter.get(
+  '/cardinal/project-by-root',
+  instrumentRoute('server.api.cardinal.project_by_root.get', (req: Request, res: Response) => {
+    const rootPath = String(req.query.root_path ?? '').trim()
+    if (!rootPath) {
+      res.status(400).json({ error: 'root_path is required' })
+      return
+    }
+
+    const project = getCardinalProjectByRootPath(path.resolve(rootPath))
+    res.json({ project })
+  }),
+)
+
+apiRouter.post(
+  '/cardinal/projects',
+  instrumentRoute('server.api.cardinal.projects.create', (req: Request, res: Response) => {
+    const rootPathRaw = String(req.body?.rootPath ?? req.body?.root_path ?? '').trim()
+    if (!rootPathRaw) {
+      res.status(400).json({ error: 'rootPath is required' })
+      return
+    }
+
+    const rootPath = path.resolve(rootPathRaw)
+    const home = path.resolve(os.homedir())
+    const isInsideHome = rootPath === home || rootPath.startsWith(`${home}${path.sep}`)
+    if (!isInsideHome) {
+      res.status(400).json({ error: `Project path must be inside ${home}` })
+      return
+    }
+
+    if (!fs.existsSync(rootPath) || !fs.lstatSync(rootPath).isDirectory()) {
+      res.status(400).json({ error: 'Project path must exist and be a directory' })
+      return
+    }
+
+    const modeRaw = String(req.body?.mode ?? 'metadata')
+    const hashPolicyRaw = String(req.body?.hashPolicy ?? req.body?.hash_policy ?? 'off')
+    const mode: ProjectMode = modeRaw === 'content' ? 'content' : 'metadata'
+    const hashPolicy: HashPolicy = hashPolicyRaw === 'on_change' ? 'on_change' : 'off'
+    const name = String(req.body?.name ?? path.basename(rootPath)).trim() || path.basename(rootPath)
+
+    const existing = getCardinalProjectByRootPath(rootPath)
+    if (existing) {
+      res.json({ project: existing, created: false })
+      return
+    }
+
+    const project = addCardinalProject({
+      name,
+      rootPath,
+      mode,
+      hashPolicy,
+      ignoreRules: loadIgnoreRulesForProject(rootPath),
+    })
+
+    res.status(201).json({ project, created: true })
+  }),
+)
+
+apiRouter.delete(
+  '/cardinal/projects/:projectId',
+  instrumentRoute('server.api.cardinal.projects.delete', (req: Request, res: Response) => {
+    const projectId = String(req.params.projectId ?? '').trim()
+    if (!projectId) {
+      res.status(400).json({ error: 'projectId is required' })
+      return
+    }
+
+    removeCardinalProject(projectId)
+    res.json({ ok: true, projectId })
+  }),
+)
+
+apiRouter.get(
+  '/cardinal/commits',
+  instrumentRoute('server.api.cardinal.commits.list', (req: Request, res: Response) => {
+    const projectId = String(req.query.project_id ?? '')
+    const rawSince = String(req.query.since_ns ?? '')
+    const rawUntil = String(req.query.until_ns ?? '')
+    const rawLimit = Number.parseInt(String(req.query.limit ?? '100'), 10)
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 1000)) : 100
+    const sinceNs = rawSince ? Number.parseInt(rawSince, 10) : undefined
+    const untilNs = rawUntil ? Number.parseInt(rawUntil, 10) : undefined
+
+    res.json({
+      commits: listCardinalCommits({
+        projectId,
+        limit,
+        sinceNs: Number.isFinite(sinceNs ?? NaN) ? sinceNs : undefined,
+        untilNs: Number.isFinite(untilNs ?? NaN) ? untilNs : undefined,
+      }),
+    })
+  }),
+)
+
+apiRouter.get(
+  '/cardinal/commit/:commitId',
+  instrumentRoute('server.api.cardinal.commit.get', (req: Request, res: Response) => {
+    const commitId = String(req.params.commitId ?? '')
+    const commit = getCardinalCommit(commitId)
+    if (!commit) {
+      res.status(404).json({ error: 'Commit not found' })
+      return
+    }
+
+    res.json({
+      commit,
+      entries: getCardinalCommitEntries(commitId),
+    })
+  }),
+)
+
+apiRouter.get(
+  '/cardinal/file-history',
+  instrumentRoute('server.api.cardinal.file_history.list', (req: Request, res: Response) => {
+    const projectId = String(req.query.project_id ?? '')
+    const relPath = String(req.query.rel_path ?? '')
+    if (!projectId || !relPath) {
+      res.status(400).json({ error: 'project_id and rel_path are required' })
+      return
+    }
+
+    const rawLimit = Number.parseInt(String(req.query.limit ?? '200'), 10)
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 1000)) : 200
+
+    res.json({
+      history: getCardinalFileHistory(projectId, relPath, limit),
+    })
+  }),
+)
+
+apiRouter.get(
+  '/cardinal/diff',
+  instrumentRoute('server.api.cardinal.diff.get', (req: Request, res: Response) => {
+    const projectId = String(req.query.project_id ?? '')
+    const fromCommitId = String(req.query.from_commit_id ?? '')
+    const toCommitId = String(req.query.to_commit_id ?? '')
+    const relPath = String(req.query.rel_path ?? '')
+
+    if (!projectId || !fromCommitId || !toCommitId) {
+      res.status(400).json({ error: 'project_id, from_commit_id and to_commit_id are required' })
+      return
+    }
+
+    const project = getCardinalProject(projectId)
+    if (!project) {
+      res.status(404).json({ error: 'Project not found' })
+      return
+    }
+
+    const fromCommit = getCardinalCommit(fromCommitId)
+    const toCommit = getCardinalCommit(toCommitId)
+    if (!fromCommit || !toCommit) {
+      res.status(404).json({ error: 'One or both commits were not found' })
+      return
+    }
+
+    if (fromCommit.projectId !== projectId || toCommit.projectId !== projectId) {
+      res.status(400).json({ error: 'Commits must belong to requested project' })
+      return
+    }
+
+    const entries = getCardinalDiffEntries({
       projectId,
+      fromSequence: fromCommit.sequenceNo,
+      toSequence: toCommit.sequenceNo,
+      relPath: relPath || undefined,
+    })
+
+    res.json({
+      project,
+      fromCommit,
+      toCommit,
+      entryCount: entries.length,
+      entries,
+    })
+  }),
+)
+
+apiRouter.get(
+  '/cardinal/events',
+  instrumentRoute('server.api.cardinal.events.list', (req: Request, res: Response) => {
+    const projectId = String(req.query.project_id ?? '').trim()
+    if (!projectId) {
+      res.status(400).json({ error: 'project_id is required' })
+      return
+    }
+
+    const sinceNs = Number.parseInt(String(req.query.since_ns ?? ''), 10)
+    const untilNs = Number.parseInt(String(req.query.until_ns ?? ''), 10)
+    if (!Number.isFinite(sinceNs) || !Number.isFinite(untilNs)) {
+      res.status(400).json({ error: 'since_ns and until_ns are required' })
+      return
+    }
+
+    const rawLimit = Number.parseInt(String(req.query.limit ?? '1000'), 10)
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 5000)) : 1000
+    const fromNs = Math.min(sinceNs, untilNs)
+    const toNs = Math.max(sinceNs, untilNs)
+
+    const events = listCardinalEvents({
+      projectId,
+      sinceNs: fromNs,
+      untilNs: toNs,
       limit,
-      sinceNs: Number.isFinite(sinceNs ?? NaN) ? sinceNs : undefined,
-      untilNs: Number.isFinite(untilNs ?? NaN) ? untilNs : undefined,
-    }),
-  })
-})
+    })
 
-apiRouter.get('/cardinal/commit/:commitId', (req: Request, res: Response) => {
-  const commitId = String(req.params.commitId ?? '')
-  const commit = getCardinalCommit(commitId)
-  if (!commit) {
-    res.status(404).json({error: 'Commit not found'})
-    return
-  }
+    res.json({ events })
+  }),
+)
 
-  res.json({
-    commit,
-    entries: getCardinalCommitEntries(commitId),
-  })
-})
-
-apiRouter.get('/cardinal/file-history', (req: Request, res: Response) => {
-  const projectId = String(req.query.project_id ?? '')
-  const relPath = String(req.query.rel_path ?? '')
-  if (!projectId || !relPath) {
-    res.status(400).json({error: 'project_id and rel_path are required'})
-    return
-  }
-
-  const rawLimit = Number.parseInt(String(req.query.limit ?? '200'), 10)
-  const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 1000)) : 200
-
-  res.json({
-    history: getCardinalFileHistory(projectId, relPath, limit),
-  })
-})
-
-apiRouter.get('/cardinal/diff', (req: Request, res: Response) => {
-  const projectId = String(req.query.project_id ?? '')
-  const fromCommitId = String(req.query.from_commit_id ?? '')
-  const toCommitId = String(req.query.to_commit_id ?? '')
-  const relPath = String(req.query.rel_path ?? '')
-
-  if (!projectId || !fromCommitId || !toCommitId) {
-    res.status(400).json({error: 'project_id, from_commit_id and to_commit_id are required'})
-    return
-  }
-
-  const project = getCardinalProject(projectId)
-  if (!project) {
-    res.status(404).json({error: 'Project not found'})
-    return
-  }
-
-  const fromCommit = getCardinalCommit(fromCommitId)
-  const toCommit = getCardinalCommit(toCommitId)
-  if (!fromCommit || !toCommit) {
-    res.status(404).json({error: 'One or both commits were not found'})
-    return
-  }
-
-  if (fromCommit.projectId !== projectId || toCommit.projectId !== projectId) {
-    res.status(400).json({error: 'Commits must belong to requested project'})
-    return
-  }
-
-  const entries = getCardinalDiffEntries({
-    projectId,
-    fromSequence: fromCommit.sequenceNo,
-    toSequence: toCommit.sequenceNo,
-    relPath: relPath || undefined,
-  })
-
-  res.json({
-    project,
-    fromCommit,
-    toCommit,
-    entryCount: entries.length,
-    entries,
-  })
-})
+apiRouter.get(
+  '/cardinal/heartbeat',
+  instrumentRoute('server.api.cardinal.heartbeat.get', (_req: Request, res: Response) => {
+    res.json({
+      heartbeat: getCardinalHeartbeatStatus(45),
+    })
+  }),
+)

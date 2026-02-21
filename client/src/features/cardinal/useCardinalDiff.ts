@@ -1,16 +1,19 @@
-import {useCallback, useEffect, useMemo, useState} from 'react'
-import {API} from '../../constants'
-import {fetchJson} from '../../utils/fetch'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { API } from '../../constants'
+import { clientLogger } from '../../observability/logger'
+import { fetchJson } from '../../utils/fetch'
 import type {
   CardinalCommit,
   CardinalCommitDetailResponse,
-  CardinalDiffEntry,
-  CardinalDiffResponse,
   CardinalCommitEntry,
   CardinalCommitsResponse,
+  CardinalDiffEntry,
+  CardinalDiffResponse,
   CardinalProject,
   CardinalProjectsResponse,
 } from './types'
+
+const diffLogger = clientLogger.child({ component: 'use-cardinal-diff' })
 
 type UseCardinalDiffResult = {
   loading: boolean
@@ -41,6 +44,12 @@ export const useCardinalDiff = (): UseCardinalDiffResult => {
     const data = await fetchJson<CardinalProjectsResponse>(`${API}/cardinal/projects`)
     const nextProjects = Array.isArray(data.projects) ? data.projects : []
     setProjects(nextProjects)
+    diffLogger.log({
+      event: 'client.cardinal.diff.projects.loaded',
+      fields: {
+        project_count: nextProjects.length,
+      },
+    })
     setSelectedProjectId((prev) => {
       if (prev && nextProjects.some((project) => project.projectId === prev)) {
         return prev
@@ -54,6 +63,10 @@ export const useCardinalDiff = (): UseCardinalDiffResult => {
       setCommits([])
       setSelectedCommitId('')
       setCommitEntries([])
+      diffLogger.log({
+        event: 'client.cardinal.diff.commits.cleared',
+        fields: {},
+      })
       return
     }
 
@@ -62,6 +75,13 @@ export const useCardinalDiff = (): UseCardinalDiffResult => {
     )
     const nextCommits = Array.isArray(data.commits) ? data.commits : []
     setCommits(nextCommits)
+    diffLogger.log({
+      event: 'client.cardinal.diff.commits.loaded',
+      fields: {
+        project_id: projectId,
+        commit_count: nextCommits.length,
+      },
+    })
     setSelectedCommitId((prev) => {
       if (prev && nextCommits.some((commit) => commit.commitId === prev)) {
         return prev
@@ -79,29 +99,72 @@ export const useCardinalDiff = (): UseCardinalDiffResult => {
   const loadCommitDetails = useCallback(async (commitId: string): Promise<void> => {
     if (!commitId) {
       setCommitEntries([])
+      diffLogger.log({
+        event: 'client.cardinal.diff.commit_details.cleared',
+        fields: {},
+      })
       return
     }
 
-    const data = await fetchJson<CardinalCommitDetailResponse>(`${API}/cardinal/commit/${encodeURIComponent(commitId)}`)
-    setCommitEntries(Array.isArray(data.entries) ? data.entries : [])
-  }, [])
-
-  const loadDiffEntries = useCallback(async (projectId: string, fromCommitId: string, toCommitId: string): Promise<void> => {
-    if (!projectId || !fromCommitId || !toCommitId) {
-      setDiffEntries([])
-      return
-    }
-
-    const data = await fetchJson<CardinalDiffResponse>(
-      `${API}/cardinal/diff?project_id=${encodeURIComponent(projectId)}&from_commit_id=${encodeURIComponent(fromCommitId)}&to_commit_id=${encodeURIComponent(toCommitId)}`,
+    const data = await fetchJson<CardinalCommitDetailResponse>(
+      `${API}/cardinal/commit/${encodeURIComponent(commitId)}`,
     )
-    setDiffEntries(Array.isArray(data.entries) ? data.entries : [])
+    const entries = Array.isArray(data.entries) ? data.entries : []
+    setCommitEntries(entries)
+    diffLogger.log({
+      event: 'client.cardinal.diff.commit_details.loaded',
+      fields: {
+        commit_id: commitId,
+        entry_count: entries.length,
+      },
+    })
   }, [])
+
+  const loadDiffEntries = useCallback(
+    async (projectId: string, fromCommitId: string, toCommitId: string): Promise<void> => {
+      if (!projectId || !fromCommitId || !toCommitId) {
+        setDiffEntries([])
+        diffLogger.log({
+          event: 'client.cardinal.diff.entries.cleared',
+          fields: {},
+        })
+        return
+      }
+
+      const data = await fetchJson<CardinalDiffResponse>(
+        `${API}/cardinal/diff?project_id=${encodeURIComponent(projectId)}&from_commit_id=${encodeURIComponent(fromCommitId)}&to_commit_id=${encodeURIComponent(toCommitId)}`,
+      )
+      const entries = Array.isArray(data.entries) ? data.entries : []
+      setDiffEntries(entries)
+      diffLogger.log({
+        event: 'client.cardinal.diff.entries.loaded',
+        fields: {
+          project_id: projectId,
+          from_commit_id: fromCommitId,
+          to_commit_id: toCommitId,
+          entry_count: entries.length,
+        },
+      })
+    },
+    [],
+  )
 
   const refresh = useCallback(async (): Promise<void> => {
     setLoading(true)
     try {
       await loadProjects()
+      diffLogger.log({
+        event: 'client.cardinal.diff.refresh.success',
+        fields: {},
+      })
+    } catch (error) {
+      diffLogger.log({
+        event: 'client.cardinal.diff.refresh.failed',
+        level: 'error',
+        outcome: 'error',
+        error: error instanceof Error ? error : String(error),
+        fields: {},
+      })
     } finally {
       setLoading(false)
     }

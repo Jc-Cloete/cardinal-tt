@@ -1,9 +1,10 @@
-import {Database} from 'bun:sqlite'
+import { Database } from 'bun:sqlite'
 import fs from 'node:fs'
 import path from 'node:path'
-import {UNKNOWN_PROJECT, cacheDbPath} from '../config'
-import type {ProcessedSession} from '../types'
-import {asRecord, asString} from '../utils/json'
+import type { JsonValue } from 'cardinal-store'
+import { cacheDbPath, UNKNOWN_PROJECT } from '../config'
+import type { ProcessedSession } from '../types'
+import { asRecord, asString } from '../utils/json'
 
 type SessionCacheRow = {
   file_path: string
@@ -18,7 +19,7 @@ type SessionCacheRow = {
   updated_at: string
 }
 
-fs.mkdirSync(path.dirname(cacheDbPath), {recursive: true})
+fs.mkdirSync(path.dirname(cacheDbPath), { recursive: true })
 
 const sessionCacheDb = new Database(cacheDbPath)
 
@@ -83,18 +84,21 @@ const upsertSessionCacheStmt = sessionCacheDb.query(`
 
 const parseStoredTimestamps = (json: string): number[] => {
   try {
-    const parsed = JSON.parse(json) as unknown
+    const parsed = JSON.parse(json) as JsonValue
     if (!Array.isArray(parsed)) {
       return []
     }
 
-    return parsed.filter((item): item is number => typeof item === 'number' && Number.isFinite(item))
+    return parsed.filter(
+      (item): item is number => typeof item === 'number' && Number.isFinite(item),
+    )
   } catch {
     return []
   }
 }
 
-const toSessionCacheRow = (value: unknown): SessionCacheRow | null => {
+// Validate and normalize dynamic sqlite rows before they reach the domain layer.
+const toSessionCacheRow = (value: JsonValue): SessionCacheRow | null => {
   const record = asRecord(value)
   if (!record) {
     return null
@@ -154,7 +158,7 @@ const rowToProcessedSession = (row: SessionCacheRow): ProcessedSession => ({
 })
 
 export const getCachedSession = (filePath: string): ProcessedSession | null => {
-  const row = toSessionCacheRow(selectSessionCacheByPathStmt.get(filePath))
+  const row = toSessionCacheRow(selectSessionCacheByPathStmt.get(filePath) as JsonValue)
   if (!row) {
     return null
   }

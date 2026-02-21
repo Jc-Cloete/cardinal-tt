@@ -1,14 +1,16 @@
-import type {JsonRecord} from '../types'
+import type { JsonValue } from 'cardinal-store'
+import type { JsonRecord } from '../types'
 
-export const asRecord = (value: unknown): JsonRecord | null =>
+// Lightweight runtime guards for parsed JSONL records.
+export const asRecord = (value: JsonValue | undefined): JsonRecord | null =>
   typeof value === 'object' && value !== null ? (value as JsonRecord) : null
 
-export const asString = (value: unknown): string | null =>
+export const asString = (value: JsonValue | undefined): string | null =>
   typeof value === 'string' ? value : null
 
 export const parseJsonRecord = (line: string): JsonRecord | null => {
   try {
-    return asRecord(JSON.parse(line) as unknown)
+    return asRecord(JSON.parse(line) as JsonValue)
   } catch {
     return null
   }

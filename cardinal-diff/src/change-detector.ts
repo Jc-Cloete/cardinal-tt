@@ -1,7 +1,7 @@
 import path from 'node:path'
-import {hashFile} from './hash'
-import {storeBlobFromFile} from './object-store'
-import type {ChangedEntry, EntrySnapshot, HashPolicy, IndexEntry, ProjectMode} from './types'
+import { hashFile } from './hash'
+import { storeBlobFromFile } from './object-store'
+import type { ChangedEntry, EntrySnapshot, HashPolicy, IndexEntry, ProjectMode } from './types'
 
 const isUnderAnyScope = (relPath: string, scopes: string[]): boolean =>
   scopes.length === 0 ||
@@ -72,6 +72,7 @@ export const buildChangeset = ({
   hashPolicy,
   maxBlobSizeBytes,
 }: BuildChangesetInput): BuildChangesetResult => {
+  // Two-phase detection: classify adds/deletes/modifies first, then resolve best-effort renames.
   const changes: ChangedEntry[] = []
   const nextIndex = new Map(currentIndex)
   const adds = new Map<string, IndexEntry>()
@@ -109,12 +110,19 @@ export const buildChangeset = ({
 
     if (!entryChanged(before, current)) {
       if (before.hash && current.kind === 'file') {
-        nextIndex.set(relPath, {...current, hash: before.hash})
+        nextIndex.set(relPath, { ...current, hash: before.hash })
       }
       continue
     }
 
-    const nextRef = computeContentRef(projectRoot, relPath, current, mode, hashPolicy, maxBlobSizeBytes)
+    const nextRef = computeContentRef(
+      projectRoot,
+      relPath,
+      current,
+      mode,
+      hashPolicy,
+      maxBlobSizeBytes,
+    )
     if (
       hashPolicy === 'on_change' &&
       before.kind === 'file' &&
@@ -123,11 +131,11 @@ export const buildChangeset = ({
       nextRef &&
       before.hash === nextRef
     ) {
-      nextIndex.set(relPath, {...current, hash: before.hash})
+      nextIndex.set(relPath, { ...current, hash: before.hash })
       continue
     }
 
-    const updatedCurrent = {...current, hash: nextRef ?? current.hash}
+    const updatedCurrent = { ...current, hash: nextRef ?? current.hash }
     nextIndex.set(relPath, updatedCurrent)
 
     changes.push({
@@ -167,8 +175,15 @@ export const buildChangeset = ({
       continue
     }
 
-    const afterRef = computeContentRef(projectRoot, addPath, added, mode, hashPolicy, maxBlobSizeBytes)
-    const after = {...added, hash: afterRef}
+    const afterRef = computeContentRef(
+      projectRoot,
+      addPath,
+      added,
+      mode,
+      hashPolicy,
+      maxBlobSizeBytes,
+    )
+    const after = { ...added, hash: afterRef }
     nextIndex.set(addPath, after)
 
     changes.push({
@@ -227,7 +242,7 @@ export const buildChangeset = ({
       continue
     }
 
-    const after = {...added, hash: addHash}
+    const after = { ...added, hash: addHash }
     nextIndex.set(addPath, after)
 
     changes.push({
@@ -249,15 +264,10 @@ export const buildChangeset = ({
       continue
     }
 
-    const afterRef = addHashes.get(relPath) || computeContentRef(
-      projectRoot,
-      relPath,
-      entry,
-      mode,
-      hashPolicy,
-      maxBlobSizeBytes,
-    )
-    const after = {...entry, hash: afterRef}
+    const afterRef =
+      addHashes.get(relPath) ||
+      computeContentRef(projectRoot, relPath, entry, mode, hashPolicy, maxBlobSizeBytes)
+    const after = { ...entry, hash: afterRef }
     nextIndex.set(relPath, after)
 
     changes.push({

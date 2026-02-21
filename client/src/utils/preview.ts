@@ -1,4 +1,4 @@
-import type {ContentItem, ParsedResponseItemEntry, PreviewMessage} from '../types'
+import type { ContentItem, ParsedResponseItemEntry, PreviewMessage } from '../types'
 
 const extractMessageBlocks = (content: ContentItem[] = []): string[] => {
   const blocks: string[] = []
@@ -34,7 +34,7 @@ export const parsePreviewMessages = (text: string): PreviewMessage[] =>
     .filter((entry) => entry?.type === 'response_item' && entry?.payload?.type === 'message')
     .map((entry, index) => ({
       id: `${entry?.timestamp || 'no-ts'}-${index}`,
-      role: entry?.payload?.role || 'unknown',
+      role: entry?.payload?.role || 'unlabeled',
       phase: entry?.payload?.phase || '',
       timestamp: entry?.timestamp || '',
       text: extractMessageBlocks(entry?.payload?.content || []).join('\n\n'),

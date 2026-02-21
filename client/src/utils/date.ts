@@ -1,8 +1,7 @@
-import {DAY_MS} from '../constants'
-import type {DateParts, DayBounds} from '../types'
+import { DAY_MS } from '../constants'
+import type { DateParts, DayBounds } from '../types'
 
-export const toSorted = (arr: string[]): string[] =>
-  [...arr].sort((a, b) => a.localeCompare(b))
+export const toSorted = (arr: string[]): string[] => [...arr].sort((a, b) => a.localeCompare(b))
 
 export const normalizeNumericDatePart = (value: string): string => {
   const parsed = Number.parseInt(value, 10)
@@ -19,7 +18,9 @@ export const pickDateOption = (options: string[], preferred: string): string => 
   }
 
   const normalizedPreferred = normalizeNumericDatePart(preferred)
-  const fallback = options.find((option) => normalizeNumericDatePart(option) === normalizedPreferred)
+  const fallback = options.find(
+    (option) => normalizeNumericDatePart(option) === normalizedPreferred,
+  )
   return fallback || ''
 }
 
@@ -29,7 +30,7 @@ export const getTodayParts = (): DateParts => {
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
 
-  return {year, month, day}
+  return { year, month, day }
 }
 
 export const getDayBounds = (year: string, month: string, day: string): DayBounds | null => {
@@ -77,5 +78,5 @@ export const formatTime = (value: number, includeDate: boolean = false): string 
     })
   }
 
-  return dt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
+  return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }

@@ -1,16 +1,17 @@
-import type {ChangedEntry} from './types'
+import type { ChangedEntry } from './types'
 
 const cloneEntry = (entry: ChangedEntry): ChangedEntry => ({
   relPath: entry.relPath,
   op: entry.op,
   oldRelPath: entry.oldRelPath,
-  before: entry.before ? {...entry.before} : null,
-  after: entry.after ? {...entry.after} : null,
+  before: entry.before ? { ...entry.before } : null,
+  after: entry.after ? { ...entry.after } : null,
   blobBefore: entry.blobBefore,
   blobAfter: entry.blobAfter,
 })
 
 const mergeIntoMap = (map: Map<string, ChangedEntry>, incoming: ChangedEntry): void => {
+  // Coalescing keeps bursty edits compact before final commit flush.
   if (incoming.op === 'RENAME' && incoming.oldRelPath) {
     const sourceExisting = map.get(incoming.oldRelPath)
     if (sourceExisting) {
@@ -49,7 +50,11 @@ const mergeIntoMap = (map: Map<string, ChangedEntry>, incoming: ChangedEntry): v
 
   if (incoming.op === 'MODIFY') {
     if (existing.op === 'ADD') {
-      map.set(incoming.relPath, {...existing, after: incoming.after, blobAfter: incoming.blobAfter})
+      map.set(incoming.relPath, {
+        ...existing,
+        after: incoming.after,
+        blobAfter: incoming.blobAfter,
+      })
       return
     }
 

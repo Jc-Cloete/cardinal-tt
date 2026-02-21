@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import type {IndexEntry, ScanStats} from './types'
-import {isIgnoredPath} from './ignore'
+import { isIgnoredPath } from './ignore'
+import type { IndexEntry, ScanStats } from './types'
 
 const toPosixPath = (value: string): string => value.split(path.sep).join('/')
 const toNs = (mtimeMs: number): number => Math.round(mtimeMs * 1_000_000)
@@ -22,6 +22,7 @@ const scanSubtreeInternal = (
   relRoot: string,
   ignoreRules: string[],
 ): ScanTreeResult => {
+  // Iterative scan avoids deep recursion limits on large trees.
   const startedAt = Date.now()
   const entries = new Map<string, IndexEntry>()
   const stats = emptyStats()
@@ -34,7 +35,7 @@ const scanSubtreeInternal = (
 
     let dirEntries: fs.Dirent[]
     try {
-      dirEntries = fs.readdirSync(absDir, {withFileTypes: true})
+      dirEntries = fs.readdirSync(absDir, { withFileTypes: true })
     } catch {
       continue
     }
@@ -125,7 +126,7 @@ const scanSubtreeInternal = (
   }
 
   stats.elapsedMs = Date.now() - startedAt
-  return {entries, stats}
+  return { entries, stats }
 }
 
 export const scanProjectTree = (rootPath: string, ignoreRules: string[]): ScanTreeResult =>
@@ -135,8 +136,7 @@ export const scanProjectSubtree = (
   rootPath: string,
   relRoot: string,
   ignoreRules: string[],
-): ScanTreeResult =>
-  scanSubtreeInternal(rootPath, relRoot, ignoreRules)
+): ScanTreeResult => scanSubtreeInternal(rootPath, relRoot, ignoreRules)
 
 const normalizeRoot = (value: string): string => {
   const normalized = toPosixPath(value).replace(/^\/+|\/+$/g, '')
@@ -173,8 +173,9 @@ export const getMinimalDirtyRoots = (dirtyPaths: Iterable<string>): string[] => 
 
 export const replaceIndexRegions = (
   previousIndex: Map<string, IndexEntry>,
-  scannedEntriesByRoot: Array<{root: string; entries: Map<string, IndexEntry>}>,
+  scannedEntriesByRoot: Array<{ root: string; entries: Map<string, IndexEntry> }>,
 ): Map<string, IndexEntry> => {
+  // Remove stale rows for rescanned roots before inserting fresh entries.
   const next = new Map(previousIndex)
 
   const roots = scannedEntriesByRoot.map((item) => item.root).sort((a, b) => a.localeCompare(b))

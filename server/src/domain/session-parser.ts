@@ -1,8 +1,14 @@
-import {UNKNOWN_PROJECT} from '../config'
-import type {ParsedSessionContent, ProcessedSession, SessionSegment, SessionSummary} from '../types'
-import {parseJsonRecord, parseTimestampMs, asString} from '../utils/json'
-import {readProjectDirFromSessionMeta, shouldExcludePreviewEntry} from './filters'
+import { UNKNOWN_PROJECT } from '../config'
+import type {
+  ParsedSessionContent,
+  ProcessedSession,
+  SessionSegment,
+  SessionSummary,
+} from '../types'
+import { asString, parseJsonRecord, parseTimestampMs } from '../utils/json'
+import { readProjectDirFromSessionMeta, shouldExcludePreviewEntry } from './filters'
 
+// Parse a raw JSONL session file once and derive the data needed by list + preview views.
 export const parseSessionFileContent = (content: string): ParsedSessionContent => {
   let projectDir = UNKNOWN_PROJECT
   const timestampsMs: number[] = []
@@ -48,6 +54,7 @@ export const buildConversationSegments = (
   fallbackMs: number,
   breakLimitMinutes: number,
 ): SessionSegment[] => {
+  // Files without timestamps still need a usable timeline anchor.
   if (timestampsMs.length === 0) {
     return [
       {
@@ -83,7 +90,11 @@ export const buildConversationSegments = (
   return segments
 }
 
-export const toSessionSummary = (session: ProcessedSession, breakLimitMinutes: number): SessionSummary => {
+export const toSessionSummary = (
+  session: ProcessedSession,
+  breakLimitMinutes: number,
+): SessionSummary => {
+  // Segment boundaries are driven by inactivity gaps, not by file naming or folder boundaries.
   const fallbackMs = parseTimestampMs(session.modifiedAt) ?? Date.now()
   const segments = buildConversationSegments(session.timestampsMs, fallbackMs, breakLimitMinutes)
   const startedAt = segments[0]?.startedAt ?? new Date(fallbackMs).toISOString()

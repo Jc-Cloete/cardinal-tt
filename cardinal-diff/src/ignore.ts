@@ -1,11 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import {minimatch} from 'minimatch'
-import {DEFAULT_IGNORE_PATTERNS} from './defaults'
+import { minimatch } from 'minimatch'
+import { DEFAULT_IGNORE_PATTERNS } from './defaults'
 
 const toPosixPath = (value: string): string => value.split(path.sep).join('/')
 
 export const loadProjectIgnoreRules = (rootPath: string): string[] => {
+  // Project-local rules extend defaults; defaults always remain active for safety/performance.
   const ignoreFile = path.join(rootPath, '.cardinaldiffignore')
   if (!fs.existsSync(ignoreFile)) {
     return [...DEFAULT_IGNORE_PATTERNS]
@@ -36,9 +37,9 @@ export const isIgnoredPath = (relPath: string, isDirectory: boolean, rules: stri
     }
 
     return (
-      minimatch(normalized, normalizedRule, {dot: true, nocase: false}) ||
-      minimatch(pathWithSlash, normalizedRule, {dot: true, nocase: false}) ||
-      minimatch(normalized, `**/${normalizedRule}`, {dot: true, nocase: false})
+      minimatch(normalized, normalizedRule, { dot: true, nocase: false }) ||
+      minimatch(pathWithSlash, normalizedRule, { dot: true, nocase: false }) ||
+      minimatch(normalized, `**/${normalizedRule}`, { dot: true, nocase: false })
     )
   })
 }
