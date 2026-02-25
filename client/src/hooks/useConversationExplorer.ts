@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ALL_PROJECTS, API } from '../constants'
+import { useToast } from '../notifications/ToastProvider'
 import { clientLogger } from '../observability/logger'
 import type {
   DateParts,
@@ -44,6 +45,7 @@ type UseConversationExplorerResult = {
 }
 
 export const useConversationExplorer = (): UseConversationExplorerResult => {
+  const { success: showSuccessToast, warning: showWarningToast, error: showErrorToast } = useToast()
   const todayParts = useMemo<DateParts>(() => getTodayParts(), [])
   const [rootDir, setRootDir] = useState<string>('')
   const [conversationBreakLimit, setConversationBreakLimit] = useState<number>(10)
@@ -218,7 +220,7 @@ export const useConversationExplorer = (): UseConversationExplorerResult => {
       selectedMonth: string,
       selectedDay: string,
       forceRefresh: boolean = false,
-    ): Promise<void> => {
+    ): Promise<boolean> => {
       try {
         const data = await fetchJson<ProjectsResponse>(
           `${API}/projects?year=${encodeURIComponent(selectedYear)}&month=${encodeURIComponent(
@@ -236,6 +238,7 @@ export const useConversationExplorer = (): UseConversationExplorerResult => {
             project_count: Array.isArray(data.projects) ? data.projects.length : 0,
           },
         })
+        return true
       } catch (error) {
         explorerLogger.log({
           event: 'client.explorer.projects.load_failed',
@@ -250,6 +253,7 @@ export const useConversationExplorer = (): UseConversationExplorerResult => {
           },
         })
         setProjects([])
+        return false
       }
     },
     [],
@@ -263,7 +267,7 @@ export const useConversationExplorer = (): UseConversationExplorerResult => {
       selectedProject: string,
       selectedBreakLimit: number,
       forceRefresh: boolean = false,
-    ): Promise<void> => {
+    ): Promise<boolean> => {
       try {
         const data = await fetchJson<FilesResponse>(
           `${API}/files?year=${encodeURIComponent(selectedYear)}&month=${encodeURIComponent(
@@ -285,6 +289,7 @@ export const useConversationExplorer = (): UseConversationExplorerResult => {
             file_count: Array.isArray(data.files) ? data.files.length : 0,
           },
         })
+        return true
       } catch (error) {
         explorerLogger.log({
           event: 'client.explorer.files.load_failed',
@@ -301,25 +306,22 @@ export const useConversationExplorer = (): UseConversationExplorerResult => {
           },
         })
         setFiles([])
+        return false
       }
     },
     [],
   )
 
   const loadPreview = useCallback(
-    async (forceRefresh: boolean = false): Promise<void> => {
+    async (forceRefresh: boolean = false): Promise<boolean> => {
       if (!year || !month || !day || !activeFile) {
         setFileContent('')
-        return
+        return true
       }
 
       try {
         const content = await fetchText(
-          `${API}/file?year=${encodeURIComponent(year)}&month=${encodeURIComponent(
-            month,
-          )}&day=${encodeURIComponent(day)}&project=${encodeURIComponent(project)}&file=${encodeURIComponent(
-            activeFile,
-          )}${forceRefresh ? '&refresh=1' : ''}`,
+          `${API}/file?relative_path=${encodeURIComponent(activeFile)}${forceRefresh ? '&refresh=1' : ''}`,
         )
 
         setFileContent(content)
@@ -330,11 +332,12 @@ export const useConversationExplorer = (): UseConversationExplorerResult => {
             month,
             day,
             project,
-            file: activeFile,
+            relative_path: activeFile,
             force_refresh: forceRefresh,
             content_length: content.length,
           },
         })
+        return true
       } catch (error) {
         explorerLogger.log({
           event: 'client.explorer.preview.load_failed',
@@ -346,11 +349,12 @@ export const useConversationExplorer = (): UseConversationExplorerResult => {
             month,
             day,
             project,
-            file: activeFile,
+            relative_path: activeFile,
             force_refresh: forceRefresh,
           },
         })
         setFileContent('')
+        return false
       }
     },
     [activeFile, day, month, project, year],
@@ -374,21 +378,36 @@ export const useConversationExplorer = (): UseConversationExplorerResult => {
 
     setIsRefreshingCache(true)
     try {
-      await loadProjects(year, month, day, true)
-      await loadFiles(year, month, day, project, conversationBreakLimit, true)
+      const projectsLoaded = await loadProjects(year, month, day, true)
+      const filesLoaded = await loadFiles(year, month, day, project, conversationBreakLimit, true)
+      let previewLoaded = true
       if (activeFile) {
-        await loadPreview(true)
+        previewLoaded = await loadPreview(true)
       }
+      const allLoaded = projectsLoaded && filesLoaded && previewLoaded
       explorerLogger.log({
-        event: 'client.explorer.cache.refresh.success',
+        event: allLoaded
+          ? 'client.explorer.cache.refresh.success'
+          : 'client.explorer.cache.refresh.partial',
         fields: {
           year,
           month,
           day,
           project,
           has_preview: Boolean(activeFile),
+          projects_loaded: projectsLoaded,
+          files_loaded: filesLoaded,
+          preview_loaded: previewLoaded,
         },
       })
+      if (allLoaded) {
+        showSuccessToast('Explorer cache refreshed', 'Projects, files, and preview were reloaded.')
+      } else {
+        showWarningToast(
+          'Explorer refresh completed with issues',
+          'Some data could not be refreshed. Check API logs if this persists.',
+        )
+      }
     } catch (error) {
       explorerLogger.log({
         event: 'client.explorer.cache.refresh.failed',
@@ -403,6 +422,10 @@ export const useConversationExplorer = (): UseConversationExplorerResult => {
           has_preview: Boolean(activeFile),
         },
       })
+      showErrorToast(
+        'Explorer refresh failed',
+        error instanceof Error ? error.message : String(error || ''),
+      )
     } finally {
       setIsRefreshingCache(false)
     }
@@ -413,6 +436,9 @@ export const useConversationExplorer = (): UseConversationExplorerResult => {
     isRefreshingCache,
     month,
     project,
+    showErrorToast,
+    showSuccessToast,
+    showWarningToast,
     year,
     loadFiles,
     loadPreview,

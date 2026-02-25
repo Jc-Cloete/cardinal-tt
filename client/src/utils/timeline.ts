@@ -43,6 +43,7 @@ export const buildCompressedTimeline = (
 
         return {
           name: session.name,
+          relativePath: session.relativePath,
           projectDir: session.projectDir,
           fileIndex,
           conversationIndex: fileIndex + 1,
@@ -188,7 +189,7 @@ export const buildCompressedTimeline = (
       .map((item) => {
         const visualStartPct = item.topPct
         const visualEndPct = Math.min(100, item.topPct + item.heightPct + visualGapPct)
-        const preferredLane = preferredLaneByConversation.get(item.name)
+        const preferredLane = preferredLaneByConversation.get(item.relativePath)
 
         const laneIsFree = (lane: number | undefined): boolean =>
           lane !== undefined &&
@@ -211,7 +212,7 @@ export const buildCompressedTimeline = (
         }
 
         laneEndPct[laneIndex] = visualEndPct
-        preferredLaneByConversation.set(item.name, laneIndex)
+        preferredLaneByConversation.set(item.relativePath, laneIndex)
 
         return {
           ...item,

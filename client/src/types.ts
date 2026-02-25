@@ -31,6 +31,7 @@ export interface SessionSegment {
 
 export interface SessionFile {
   name: string
+  relativePath: string
   projectDir: string
   startedAt: string
   endedAt: string
@@ -76,6 +77,7 @@ export interface DayBounds {
 
 export interface RawTimelineItem {
   name: string
+  relativePath: string
   projectDir: string
   fileIndex: number
   conversationIndex: number

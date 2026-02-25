@@ -49,7 +49,7 @@ export const CardinalDiffPanel = () => {
               ))}
             </Select.Content>
           </Select.Root>
-          <Button variant="soft" onClick={() => void refresh()} disabled={loading}>
+          <Button variant="soft" onClick={() => void refresh(true)} disabled={loading}>
             <ReloadIcon width={14} height={14} />
             Refresh
           </Button>

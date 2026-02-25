@@ -1,6 +1,7 @@
 import { Button, Card, Flex, Heading, ScrollArea, Select, Text, TextField } from '@radix-ui/themes'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { API } from '../../constants'
+import { useToast } from '../../notifications/ToastProvider'
 import { fetchJson } from '../../utils/fetch'
 import type { CardinalDiffEntry, CardinalEventsResponse, CardinalProject } from './types'
 
@@ -28,6 +29,7 @@ const getTodayDate = (): string => {
 }
 
 export const CardinalEventsPage = ({ projects }: CardinalEventsPageProps) => {
+  const { success: showSuccessToast, error: showErrorToast, warning: showWarningToast } = useToast()
   // Time-range filters are kept local so event browsing remains independent from explorer page state.
   const [projectId, setProjectId] = useState<string>('')
   const [day, setDay] = useState<string>(getTodayDate())
@@ -54,32 +56,61 @@ export const CardinalEventsPage = ({ projects }: CardinalEventsPageProps) => {
     [day, fromTime, toTime],
   )
 
-  const loadEvents = useCallback(async (): Promise<void> => {
-    if (!projectId || rangeNs.sinceNs === null || rangeNs.untilNs === null) {
-      setEvents([])
-      return
-    }
+  const loadEvents = useCallback(
+    async (notify: boolean = false): Promise<void> => {
+      if (!projectId || rangeNs.sinceNs === null || rangeNs.untilNs === null) {
+        setEvents([])
+        if (notify) {
+          showWarningToast(
+            'Unable to load events',
+            'Select a project and a valid time range first.',
+          )
+        }
+        return
+      }
 
-    const parsedLimit = Number.parseInt(limit, 10)
-    const boundedLimit = Number.isFinite(parsedLimit)
-      ? Math.max(1, Math.min(parsedLimit, 5000))
-      : 1000
+      const parsedLimit = Number.parseInt(limit, 10)
+      const boundedLimit = Number.isFinite(parsedLimit)
+        ? Math.max(1, Math.min(parsedLimit, 5000))
+        : 1000
 
-    setLoading(true)
-    try {
-      const response = await fetchJson<CardinalEventsResponse>(
-        `${API}/cardinal/events?project_id=${encodeURIComponent(projectId)}&since_ns=${encodeURIComponent(
-          String(rangeNs.sinceNs),
-        )}&until_ns=${encodeURIComponent(String(rangeNs.untilNs))}&limit=${encodeURIComponent(String(boundedLimit))}`,
-      )
-      setEvents(Array.isArray(response.events) ? response.events : [])
-    } finally {
-      setLoading(false)
-    }
-  }, [projectId, rangeNs.sinceNs, rangeNs.untilNs, limit])
+      setLoading(true)
+      try {
+        const response = await fetchJson<CardinalEventsResponse>(
+          `${API}/cardinal/events?project_id=${encodeURIComponent(projectId)}&since_ns=${encodeURIComponent(
+            String(rangeNs.sinceNs),
+          )}&until_ns=${encodeURIComponent(String(rangeNs.untilNs))}&limit=${encodeURIComponent(String(boundedLimit))}`,
+        )
+        setEvents(Array.isArray(response.events) ? response.events : [])
+        if (notify) {
+          showSuccessToast(
+            'Event stream refreshed',
+            `${Array.isArray(response.events) ? response.events.length : 0} events loaded.`,
+          )
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '')
+        setEvents([])
+        if (notify) {
+          showErrorToast('Failed to load event stream', message)
+        }
+      } finally {
+        setLoading(false)
+      }
+    },
+    [
+      projectId,
+      rangeNs.sinceNs,
+      rangeNs.untilNs,
+      limit,
+      showErrorToast,
+      showSuccessToast,
+      showWarningToast,
+    ],
+  )
 
   useEffect(() => {
-    void loadEvents()
+    void loadEvents(false)
   }, [loadEvents])
 
   return (
@@ -141,7 +172,7 @@ export const CardinalEventsPage = ({ projects }: CardinalEventsPageProps) => {
           />
         </div>
 
-        <Button onClick={() => void loadEvents()} disabled={loading || !projectId}>
+        <Button onClick={() => void loadEvents(true)} disabled={loading || !projectId}>
           {loading ? 'Loading...' : 'Reload Events'}
         </Button>
       </Flex>

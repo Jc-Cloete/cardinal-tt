@@ -27,13 +27,23 @@ const asNumber = (value: JsonValue | null | undefined): number | null => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+const asBoolean = (value: JsonValue | null | undefined): boolean | null =>
+  typeof value === 'boolean' ? value : null
+
 const buildAuthHeader = (): string => {
-  if (jiraConfig.authToken) {
-    return `Bearer ${jiraConfig.authToken}`
+  // Prefer Jira Cloud API token auth when explicit email/token are provided.
+  if (jiraConfig.email && jiraConfig.apiToken) {
+    const encoded = Buffer.from(`${jiraConfig.email}:${jiraConfig.apiToken}`).toString('base64')
+    return `Basic ${encoded}`
   }
 
-  const encoded = Buffer.from(`${jiraConfig.email}:${jiraConfig.apiToken}`).toString('base64')
-  return `Basic ${encoded}`
+  if (jiraConfig.authToken) {
+    return jiraConfig.authToken.startsWith('Bearer ') || jiraConfig.authToken.startsWith('Basic ')
+      ? jiraConfig.authToken
+      : `Bearer ${jiraConfig.authToken}`
+  }
+
+  throw new Error('No Jira authentication credentials are configured')
 }
 
 const parseErrorMessage = (payload: JsonValue): string => {
@@ -45,6 +55,12 @@ const parseErrorMessage = (payload: JsonValue): string => {
   const message = asString(root.errorMessages)
   if (message) {
     return message
+  }
+
+  const singularMessage =
+    asString(root.message) || asString(root.errorMessage) || asString(root.detail)
+  if (singularMessage) {
+    return singularMessage
   }
 
   const errorMessages = asArray(root.errorMessages)
@@ -67,7 +83,30 @@ const parseErrorMessage = (payload: JsonValue): string => {
     }
   }
 
+  const fallbackPairs = Object.entries(root)
+    .map(([key, value]) => {
+      const text = asString(value)
+      return text ? `${key}: ${text}` : null
+    })
+    .filter((item): item is string => Boolean(item))
+  if (fallbackPairs.length > 0) {
+    return fallbackPairs.join('; ')
+  }
+
   return 'Unknown Jira API error'
+}
+
+const parseErrorFromRawBody = (bodyText: string): string => {
+  if (!bodyText.trim()) {
+    return 'Unknown Jira API error'
+  }
+
+  try {
+    const parsed = JSON.parse(bodyText) as JsonValue
+    return parseErrorMessage(parsed)
+  } catch {
+    return bodyText.trim().slice(0, 500)
+  }
 }
 
 const buildTextAdf = (text: string): JsonObject => ({
@@ -119,6 +158,7 @@ const jiraFetchJson = async (
   })
 
   const contentLength = Number(response.headers.get('content-length') || 0)
+  const loginReason = response.headers.get('x-seraph-loginreason')
   jiraLogger.log({
     event: 'server.jira.http.request',
     level: response.ok ? 'info' : 'warn',
@@ -129,19 +169,47 @@ const jiraFetchJson = async (
       status_code: response.status,
       duration_ms: Date.now() - startedAt,
       has_response_body: contentLength > 0 || response.status !== 204,
+      jira_login_reason: loginReason,
     },
   })
+
+  if (loginReason === 'AUTHENTICATED_FAILED') {
+    const authError = new Error(
+      'Jira authentication failed. Check JIRA_EMAIL + JIRA_API_TOKEN (preferred) or JIRA_AUTH_TOKEN.',
+    ) as Error & {
+      status?: number
+      upstream_status?: number
+    }
+    authError.status = 401
+    authError.upstream_status = response.status
+    throw authError
+  }
 
   if (response.status === 204) {
     return null
   }
 
-  const payload = (await response.json()) as JsonValue
+  const rawBody = await response.text()
+  let payload: JsonValue = null
+  if (rawBody) {
+    try {
+      payload = JSON.parse(rawBody) as JsonValue
+    } catch {
+      payload = null
+    }
+  }
   if (!response.ok) {
-    throw new Error(parseErrorMessage(payload))
+    const message = parseErrorFromRawBody(rawBody)
+    const error = new Error(`Jira ${response.status}: ${message}`) as Error & {
+      status?: number
+      upstream_status?: number
+    }
+    error.status = response.status === 401 || response.status === 403 ? response.status : 502
+    error.upstream_status = response.status
+    throw error
   }
 
-  return payload
+  return payload as JsonValue
 }
 
 const toIssueProjectKeyFallback = (issueKey: string): string => {
@@ -262,16 +330,20 @@ export const listJiraProjectsRemote = async (): Promise<JiraProject[]> => {
 
 export const listJiraIssuesRemote = async (projectKey: string): Promise<JiraIssue[]> => {
   const issues: JiraIssue[] = []
-  let startAt = 0
+  let nextPageToken: string | null = null
+  const visitedTokens = new Set<string>()
 
   while (true) {
     const params = new URLSearchParams({
       jql: `project=${projectKey} ORDER BY updated DESC`,
       fields: JIRA_ISSUE_FIELDS,
-      startAt: String(startAt),
       maxResults: String(PAGE_SIZE),
     })
-    const payload = await jiraFetchJson('/rest/api/3/search', { params })
+    if (nextPageToken) {
+      params.set('nextPageToken', nextPageToken)
+    }
+
+    const payload = await jiraFetchJson('/rest/api/3/search/jql', { params })
     const root = asObject(payload)
     const values = asArray(root?.issues)
     issues.push(
@@ -280,12 +352,15 @@ export const listJiraIssuesRemote = async (projectKey: string): Promise<JiraIssu
         .filter((value): value is JiraIssue => value !== null),
     )
 
-    const total = asNumber(root?.total)
-    const nextStart = startAt + values.length
-    if (values.length === 0 || (total !== null && nextStart >= total)) {
+    const isLast = asBoolean(root?.isLast)
+    const token = asString(root?.nextPageToken)
+
+    if (isLast === true || values.length === 0 || !token || visitedTokens.has(token)) {
       break
     }
-    startAt = nextStart
+
+    visitedTokens.add(token)
+    nextPageToken = token
   }
 
   return issues

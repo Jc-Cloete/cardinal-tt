@@ -21,6 +21,7 @@ import {
 import {
   addJiraIssueComment,
   createJiraIssue,
+  listJiraFilterOptions,
   listJiraIssues,
   listJiraProjects,
   listJiraTransitions,
@@ -256,13 +257,20 @@ apiRouter.get(
 apiRouter.get(
   '/file',
   instrumentRoute('server.api.file.get', (req: Request, res: Response) => {
+    const relativePath = String(req.query.relative_path ?? '').trim()
     const year = String(req.query.year ?? '')
     const month = String(req.query.month ?? '')
     const day = String(req.query.day ?? '')
     const file = String(req.query.file ?? '')
-    const filePath = resolveSafePath(path.join(year, month, day, file))
+    const fallbackPath = path.join(year, month, day, file)
+    if (!relativePath && !file.trim()) {
+      res.status(400).json({ error: 'relative_path or file is required' })
+      return
+    }
+    const resolvedRelativePath = relativePath || fallbackPath
+    const filePath = resolveSafePath(resolvedRelativePath)
 
-    if (!fs.existsSync(filePath)) {
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
       res.status(404).json({ error: 'File not found' })
       return
     }
@@ -271,6 +279,7 @@ apiRouter.get(
     serverLogger.log({
       event: 'server.api.file.query',
       fields: toRouteFields({
+        relative_path: relativePath || null,
         year,
         month,
         day,
@@ -296,6 +305,26 @@ apiRouter.get(
     const response = await listJiraProjects(forceRefresh)
     res.json({
       projects: response.items,
+      source: response.source,
+      synced_at: response.syncedAt,
+      stale: response.stale,
+    })
+  }),
+)
+
+apiRouter.get(
+  '/jira/filter-options',
+  instrumentRoute('server.api.jira.filter_options.list', async (req: Request, res: Response) => {
+    if (!ensureJiraConfigured(res)) {
+      return
+    }
+
+    const forceRefresh = isForceRefresh(req.query.refresh)
+    const response = await listJiraFilterOptions(forceRefresh)
+    res.json({
+      projects: response.projects,
+      statuses: response.statuses,
+      assignees: response.assignees,
       source: response.source,
       synced_at: response.syncedAt,
       stale: response.stale,

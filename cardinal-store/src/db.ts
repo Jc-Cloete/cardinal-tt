@@ -216,6 +216,8 @@ type CardinalStore = {
   listJiraProjects: () => JiraCachedProject[]
   replaceJiraProjects: (args: { projects: JiraCachedProject[]; syncedAt: string }) => void
   listJiraIssues: (projectKey: string) => JiraCachedIssue[]
+  listJiraIssueStatusOptions: () => string[]
+  listJiraIssueAssigneeOptions: () => string[]
   replaceJiraIssues: (args: {
     projectKey: string
     issues: JiraCachedIssue[]
@@ -656,6 +658,20 @@ export const createCardinalStore = (dbPath: string): CardinalStore => {
     FROM jira_issues
     WHERE project_key = ?1
     ORDER BY issue_key ASC
+  `)
+
+  const selectJiraIssueStatusOptionsStmt = db.query(`
+    SELECT DISTINCT status_name
+    FROM jira_issues
+    WHERE status_name IS NOT NULL AND trim(status_name) <> ''
+    ORDER BY lower(status_name) ASC
+  `)
+
+  const selectJiraIssueAssigneeOptionsStmt = db.query(`
+    SELECT DISTINCT assignee_display_name
+    FROM jira_issues
+    WHERE assignee_display_name IS NOT NULL AND trim(assignee_display_name) <> ''
+    ORDER BY lower(assignee_display_name) ASC
   `)
 
   const upsertJiraSyncStateStmt = db.query(`
@@ -1226,6 +1242,32 @@ export const createCardinalStore = (dbPath: string): CardinalStore => {
           (selectJiraIssuesByProjectStmt.all(projectKey) as Array<JsonObject>)
             .map((row) => toJiraCachedIssue(row))
             .filter((row): row is JiraCachedIssue => row !== null),
+        'debug',
+      ),
+
+    listJiraIssueStatusOptions: (): string[] =>
+      runStore(
+        'cardinal.store.jira.issues.status_options.list',
+        {},
+        () =>
+          (selectJiraIssueStatusOptionsStmt.all() as Array<JsonObject>)
+            .map((row) => asString(row.status_name))
+            .filter((value): value is string => Boolean(value))
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0),
+        'debug',
+      ),
+
+    listJiraIssueAssigneeOptions: (): string[] =>
+      runStore(
+        'cardinal.store.jira.issues.assignee_options.list',
+        {},
+        () =>
+          (selectJiraIssueAssigneeOptionsStmt.all() as Array<JsonObject>)
+            .map((row) => asString(row.assignee_display_name))
+            .filter((value): value is string => Boolean(value))
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0),
         'debug',
       ),
 

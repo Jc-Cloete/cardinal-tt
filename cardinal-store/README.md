@@ -20,7 +20,11 @@ bun run typecheck
 - default constants (ignore patterns, debounce/flush intervals, blob size limit)
 - strict shared types (`ProjectConfig`, `CommitRecord`, `ChangedEntry`, `JsonValue`, etc.)
 - project maintenance API (`reprocessProject`) for clearing stale project history and reseeding index snapshots.
-- Jira cache APIs (`listJiraProjects`, `replaceJiraProjects`, `listJiraIssues`, `replaceJiraIssues`, `upsertJiraIssue`, `getJiraSyncAt`)
+- Jira cache APIs:
+  - `listJiraProjects`, `replaceJiraProjects`
+  - `listJiraIssues`, `replaceJiraIssues`, `upsertJiraIssue`
+  - `listJiraIssueStatusOptions`, `listJiraIssueAssigneeOptions`
+  - `getJiraSyncAt`
 
 ## Schema Ownership
 
@@ -32,6 +36,7 @@ bun run typecheck
 - project/index/commit/metric CRUD/query operations
 - project reprocess transaction (clear project commit/index history and replace with fresh index + cursor)
 - Jira cache transactions (projects/issues snapshots + sync state updates)
+- Jira filter option queries (distinct status and assignee values from cached issues)
 
 Keeping schema logic here prevents drift between the agent writer and API reader.
 

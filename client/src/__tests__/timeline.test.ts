@@ -10,6 +10,7 @@ const makeSession = (
   segments?: Array<{ startedAt?: string; endedAt?: string }>,
 ): SessionFile => ({
   name,
+  relativePath: `2026/02/20/${name}.jsonl`,
   projectDir,
   startedAt,
   endedAt,

@@ -13,6 +13,8 @@ Scope: `client`
 - Managing CardinalDiff tracking status and heartbeat visibility
 - Browsing cardinal event streams by project/time range
 - Managing Jira projects/issues, comments, transitions, and ticket creation
+- Configuring default Jira project/status/assignee filters
+- Displaying global toast notifications for user-triggered outcomes
 
 ## 2. Non-Goals
 
@@ -34,9 +36,15 @@ Scope: `client`
 3. Jira page:
    - project selector
    - ticket list for selected project
+   - searchable status/assignee multi-select filters
    - comment/status actions on selected ticket
    - ticket creation form
    - cache refresh/force-refresh controls
+4. Settings page:
+   - default Jira project selector
+   - default Jira status/assignee multi-select selectors
+   - options reload/force-refresh
+   - save/reset settings controls
 
 ## 4. Data Dependencies
 
@@ -97,6 +105,27 @@ Timeline must be vertical and support:
 - Jira mutations must update UI immediately by reloading affected issue lists.
 - Jira list views should show cache source/sync metadata when provided by API.
 - Force refresh controls must bypass local cache and trigger remote sync via server.
+- Default Jira filters from settings must apply to the active selected project.
+- Default status/assignee filters must be matched case-insensitively against available options.
+- Default filter application must wait for issue data loaded for the currently selected project.
+- Jira issue loading must ignore stale in-flight responses when the selected project changes quickly.
+
+### 5.7 Settings behavior
+
+- Settings are persisted in localStorage.
+- Jira defaults include:
+  - `defaultProjectKey`
+  - `defaultStatusFilters`
+  - `defaultAssigneeFilters`
+- Options for defaults are sourced from `/api/jira/filter-options`.
+- Settings save/reset/reload actions are user-triggered and must be non-blocking.
+
+### 5.8 Notification behavior
+
+- A global toast provider must render top-right notifications.
+- Toasts must follow active theme (dark/light) and typography.
+- Toasts should be emitted for user-triggered success/error/info/warning outcomes.
+- Toast integration must avoid causing rerender loops in data hooks.
 
 ## 6. State Management Contract
 
@@ -104,6 +133,8 @@ Timeline must be vertical and support:
 - Cardinal tracking/heartbeat state is managed in `useCardinalStatus`.
 - Cardinal diff compare state is managed in `useCardinalDiff`.
 - Jira state/actions are managed in `useJira`.
+- App settings state is managed in `useAppSettings`.
+- Notification state is managed in `ToastProvider`.
 - Hooks must avoid stale closure behavior and follow exhaustive dependency rules.
 
 ## 7. Error Handling
@@ -113,6 +144,7 @@ Timeline must be vertical and support:
 - Invalid/empty payloads should not break rendering.
 - Preview fetch failures should clear preview content and keep UI interactive.
 - Jira errors should remain non-fatal and keep the page interactive.
+- User-triggered failures should surface visible toast feedback without crashing the page.
 
 ## 8. Accessibility and Quality
 
@@ -136,6 +168,8 @@ Minimum required client tests:
   - cross-day segment ranges
   - fallback display labels for unknown roles/projects
   - Jira selection fallback when selected project/issue is no longer present
+  - default Jira status/assignee filters applying after project-specific issues load
+  - stale Jira issue response suppression on rapid project switches
 
 ## 10. Change Management
 

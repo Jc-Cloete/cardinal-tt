@@ -32,7 +32,11 @@ Returned store capabilities:
 - Project maintenance: `reprocessProject` (clear project history and replace index snapshot/cursor atomically)
 - Commit writing: `writeCommit`
 - Metrics/heartbeat: `recordProjectMetrics`, `recordHeartbeat`, `getLatestHeartbeat`
-- Jira cache: `listJiraProjects`, `replaceJiraProjects`, `listJiraIssues`, `replaceJiraIssues`, `upsertJiraIssue`, `getJiraSyncAt`
+- Jira cache:
+  - `listJiraProjects`, `replaceJiraProjects`
+  - `listJiraIssues`, `replaceJiraIssues`, `upsertJiraIssue`
+  - `listJiraIssueStatusOptions`, `listJiraIssueAssigneeOptions`
+  - `getJiraSyncAt`
 - Commit/history queries: `listCommits`, `listCommitsBySequenceRange`, `getCommit`, `getCommitEntries`, `getFileHistory`
 
 Type exports are canonical and must remain strict (no `any`/`unknown` in public models).
@@ -79,6 +83,7 @@ Schema upgrades:
 6. `reprocessProject` MUST clear project commit/history/index state and write the provided snapshot in one transaction.
 7. Query APIs MUST cap `limit` values to prevent unbounded reads.
 8. Jira cache replacement methods MUST update snapshot rows and sync markers atomically.
+9. Jira filter option methods MUST return deduplicated, trimmed non-empty values sorted case-insensitively.
 
 ## 6. Data Integrity Invariants
 
@@ -121,6 +126,7 @@ Minimum required coverage in this package:
   - heartbeat absent/present behavior
   - reprocess resets prior commit history and seeds replacement index snapshot
   - jira cache replace/upsert behavior and sync marker updates
+  - jira status/assignee option queries return expected distinct values from cached issues
 
 ## 11. Change Management
 

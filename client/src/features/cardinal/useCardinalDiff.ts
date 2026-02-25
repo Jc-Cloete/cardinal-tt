@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { API } from '../../constants'
+import { useToast } from '../../notifications/ToastProvider'
 import { clientLogger } from '../../observability/logger'
 import { fetchJson } from '../../utils/fetch'
 import type {
@@ -27,10 +28,11 @@ type UseCardinalDiffResult = {
   setSelectedProjectId: (projectId: string) => void
   setSelectedCommitId: (commitId: string) => void
   setCompareFromCommitId: (commitId: string) => void
-  refresh: () => Promise<void>
+  refresh: (notify?: boolean) => Promise<void>
 }
 
 export const useCardinalDiff = (): UseCardinalDiffResult => {
+  const { success: showSuccessToast, error: showErrorToast } = useToast()
   const [loading, setLoading] = useState<boolean>(false)
   const [projects, setProjects] = useState<CardinalProject[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
@@ -58,67 +60,103 @@ export const useCardinalDiff = (): UseCardinalDiffResult => {
     })
   }, [])
 
-  const loadCommits = useCallback(async (projectId: string): Promise<void> => {
-    if (!projectId) {
-      setCommits([])
-      setSelectedCommitId('')
-      setCommitEntries([])
-      diffLogger.log({
-        event: 'client.cardinal.diff.commits.cleared',
-        fields: {},
-      })
-      return
-    }
-
-    const data = await fetchJson<CardinalCommitsResponse>(
-      `${API}/cardinal/commits?project_id=${encodeURIComponent(projectId)}&limit=100`,
-    )
-    const nextCommits = Array.isArray(data.commits) ? data.commits : []
-    setCommits(nextCommits)
-    diffLogger.log({
-      event: 'client.cardinal.diff.commits.loaded',
-      fields: {
-        project_id: projectId,
-        commit_count: nextCommits.length,
-      },
-    })
-    setSelectedCommitId((prev) => {
-      if (prev && nextCommits.some((commit) => commit.commitId === prev)) {
-        return prev
+  const loadCommits = useCallback(
+    async (projectId: string): Promise<void> => {
+      if (!projectId) {
+        setCommits([])
+        setSelectedCommitId('')
+        setCommitEntries([])
+        diffLogger.log({
+          event: 'client.cardinal.diff.commits.cleared',
+          fields: {},
+        })
+        return
       }
-      return nextCommits[0]?.commitId || ''
-    })
-    setCompareFromCommitId((prev) => {
-      if (prev && nextCommits.some((commit) => commit.commitId === prev)) {
-        return prev
+
+      try {
+        const data = await fetchJson<CardinalCommitsResponse>(
+          `${API}/cardinal/commits?project_id=${encodeURIComponent(projectId)}&limit=100`,
+        )
+        const nextCommits = Array.isArray(data.commits) ? data.commits : []
+        setCommits(nextCommits)
+        diffLogger.log({
+          event: 'client.cardinal.diff.commits.loaded',
+          fields: {
+            project_id: projectId,
+            commit_count: nextCommits.length,
+          },
+        })
+        setSelectedCommitId((prev) => {
+          if (prev && nextCommits.some((commit) => commit.commitId === prev)) {
+            return prev
+          }
+          return nextCommits[0]?.commitId || ''
+        })
+        setCompareFromCommitId((prev) => {
+          if (prev && nextCommits.some((commit) => commit.commitId === prev)) {
+            return prev
+          }
+          return nextCommits[1]?.commitId || ''
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '')
+        diffLogger.log({
+          event: 'client.cardinal.diff.commits.load_failed',
+          level: 'error',
+          outcome: 'error',
+          error: message,
+          fields: {
+            project_id: projectId,
+          },
+        })
+        setCommits([])
+        showErrorToast('Failed to load commits', message)
       }
-      return nextCommits[1]?.commitId || ''
-    })
-  }, [])
+    },
+    [showErrorToast],
+  )
 
-  const loadCommitDetails = useCallback(async (commitId: string): Promise<void> => {
-    if (!commitId) {
-      setCommitEntries([])
-      diffLogger.log({
-        event: 'client.cardinal.diff.commit_details.cleared',
-        fields: {},
-      })
-      return
-    }
+  const loadCommitDetails = useCallback(
+    async (commitId: string): Promise<void> => {
+      if (!commitId) {
+        setCommitEntries([])
+        diffLogger.log({
+          event: 'client.cardinal.diff.commit_details.cleared',
+          fields: {},
+        })
+        return
+      }
 
-    const data = await fetchJson<CardinalCommitDetailResponse>(
-      `${API}/cardinal/commit/${encodeURIComponent(commitId)}`,
-    )
-    const entries = Array.isArray(data.entries) ? data.entries : []
-    setCommitEntries(entries)
-    diffLogger.log({
-      event: 'client.cardinal.diff.commit_details.loaded',
-      fields: {
-        commit_id: commitId,
-        entry_count: entries.length,
-      },
-    })
-  }, [])
+      try {
+        const data = await fetchJson<CardinalCommitDetailResponse>(
+          `${API}/cardinal/commit/${encodeURIComponent(commitId)}`,
+        )
+        const entries = Array.isArray(data.entries) ? data.entries : []
+        setCommitEntries(entries)
+        diffLogger.log({
+          event: 'client.cardinal.diff.commit_details.loaded',
+          fields: {
+            commit_id: commitId,
+            entry_count: entries.length,
+          },
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '')
+        diffLogger.log({
+          event: 'client.cardinal.diff.commit_details.load_failed',
+          level: 'error',
+          outcome: 'error',
+          error: message,
+          fields: {
+            commit_id: commitId,
+          },
+        })
+        setCommitEntries([])
+        showErrorToast('Failed to load commit entries', message)
+      }
+    },
+    [showErrorToast],
+  )
 
   const loadDiffEntries = useCallback(
     async (projectId: string, fromCommitId: string, toCommitId: string): Promise<void> => {
@@ -131,44 +169,69 @@ export const useCardinalDiff = (): UseCardinalDiffResult => {
         return
       }
 
-      const data = await fetchJson<CardinalDiffResponse>(
-        `${API}/cardinal/diff?project_id=${encodeURIComponent(projectId)}&from_commit_id=${encodeURIComponent(fromCommitId)}&to_commit_id=${encodeURIComponent(toCommitId)}`,
-      )
-      const entries = Array.isArray(data.entries) ? data.entries : []
-      setDiffEntries(entries)
-      diffLogger.log({
-        event: 'client.cardinal.diff.entries.loaded',
-        fields: {
-          project_id: projectId,
-          from_commit_id: fromCommitId,
-          to_commit_id: toCommitId,
-          entry_count: entries.length,
-        },
-      })
+      try {
+        const data = await fetchJson<CardinalDiffResponse>(
+          `${API}/cardinal/diff?project_id=${encodeURIComponent(projectId)}&from_commit_id=${encodeURIComponent(fromCommitId)}&to_commit_id=${encodeURIComponent(toCommitId)}`,
+        )
+        const entries = Array.isArray(data.entries) ? data.entries : []
+        setDiffEntries(entries)
+        diffLogger.log({
+          event: 'client.cardinal.diff.entries.loaded',
+          fields: {
+            project_id: projectId,
+            from_commit_id: fromCommitId,
+            to_commit_id: toCommitId,
+            entry_count: entries.length,
+          },
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '')
+        diffLogger.log({
+          event: 'client.cardinal.diff.entries.load_failed',
+          level: 'error',
+          outcome: 'error',
+          error: message,
+          fields: {
+            project_id: projectId,
+            from_commit_id: fromCommitId,
+            to_commit_id: toCommitId,
+          },
+        })
+        setDiffEntries([])
+        showErrorToast('Failed to load diff entries', message)
+      }
     },
-    [],
+    [showErrorToast],
   )
 
-  const refresh = useCallback(async (): Promise<void> => {
-    setLoading(true)
-    try {
-      await loadProjects()
-      diffLogger.log({
-        event: 'client.cardinal.diff.refresh.success',
-        fields: {},
-      })
-    } catch (error) {
-      diffLogger.log({
-        event: 'client.cardinal.diff.refresh.failed',
-        level: 'error',
-        outcome: 'error',
-        error: error instanceof Error ? error : String(error),
-        fields: {},
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [loadProjects])
+  const refresh = useCallback(
+    async (notify: boolean = false): Promise<void> => {
+      setLoading(true)
+      try {
+        await loadProjects()
+        diffLogger.log({
+          event: 'client.cardinal.diff.refresh.success',
+          fields: {},
+        })
+        if (notify) {
+          showSuccessToast('Cardinal diff refreshed', 'Tracked projects were reloaded.')
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '')
+        diffLogger.log({
+          event: 'client.cardinal.diff.refresh.failed',
+          level: 'error',
+          outcome: 'error',
+          error: message,
+          fields: {},
+        })
+        showErrorToast('Failed to refresh Cardinal diff', message)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [loadProjects, showErrorToast, showSuccessToast],
+  )
 
   useEffect(() => {
     void refresh()

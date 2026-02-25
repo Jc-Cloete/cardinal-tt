@@ -16,3 +16,12 @@ Project specifications and design artifacts.
 ## Usage
 
 When implementing features, treat specs here as product requirements and use workspace READMEs for implementation details.
+
+Workspace docs to keep in sync with specs:
+
+- `README.md`
+- `client/README.md`
+- `server/README.md`
+- `cardinal-diff/README.md`
+- `cardinal-store/README.md`
+- `cardinal-observability/README.md`

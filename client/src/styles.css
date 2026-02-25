@@ -30,6 +30,19 @@ body {
   color: var(--gray-10);
 }
 
+.visually-hidden {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 .controls {
   align-items: end;
 }
@@ -306,6 +319,194 @@ body {
 .jira-ticket-row.is-active {
   background: var(--cyan-4);
   border-color: var(--cyan-8);
+}
+
+.multi-select-root {
+  min-width: 220px;
+  display: grid;
+  gap: 6px;
+}
+
+.multi-select-trigger {
+  border: 1px solid var(--gray-7);
+  border-radius: 8px;
+  background: var(--gray-2);
+  color: var(--gray-12);
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.multi-select-trigger:hover {
+  border-color: var(--cyan-8);
+}
+
+.multi-select-trigger-label {
+  display: block;
+  width: 100%;
+}
+
+.multi-select-content {
+  z-index: 1000;
+  width: min(320px, calc(100vw - 24px));
+  border: 1px solid var(--gray-7);
+  border-radius: 10px;
+  background: var(--gray-1);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.multi-select-search {
+  display: grid;
+}
+
+.multi-select-panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.multi-select-action {
+  appearance: none;
+  border: 1px solid var(--gray-7);
+  border-radius: 6px;
+  background: var(--gray-2);
+  color: var(--gray-12);
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.multi-select-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.multi-select-options {
+  display: grid;
+  gap: 4px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--gray-6);
+  border-radius: 8px;
+  padding: 6px;
+  background: var(--gray-2);
+}
+
+.multi-select-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--gray-12);
+}
+
+.toast-viewport {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 3000;
+  width: min(420px, calc(100vw - 24px));
+  display: grid;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast-item {
+  pointer-events: auto;
+  border: 1px solid var(--gray-7);
+  border-left-width: 3px;
+  border-left-color: var(--gray-8);
+  background: var(--gray-2);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  gap: 10px;
+  padding: 10px 10px 10px 12px;
+  align-items: start;
+  font-family: var(--default-font-family);
+  color: var(--gray-12);
+}
+
+.toast-icon {
+  margin-top: 1px;
+  font-size: 16px;
+}
+
+.toast-content {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.toast-title {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--gray-12);
+  font-weight: 600;
+}
+
+.toast-description {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--gray-11);
+}
+
+.toast-close {
+  appearance: none;
+  border: 1px solid var(--gray-7);
+  background: transparent;
+  color: var(--gray-11);
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 16px;
+  padding: 0;
+  font-family: inherit;
+}
+
+.toast-close:hover {
+  border-color: var(--gray-9);
+  color: var(--gray-12);
+}
+
+.toast-success {
+  border-left-color: var(--green-9);
+}
+
+.toast-success .toast-icon {
+  color: var(--green-10);
+}
+
+.toast-error {
+  border-left-color: var(--red-9);
+}
+
+.toast-error .toast-icon {
+  color: var(--red-10);
+}
+
+.toast-warning {
+  border-left-color: var(--amber-9);
+}
+
+.toast-warning .toast-icon {
+  color: var(--amber-10);
+}
+
+.toast-info {
+  border-left-color: var(--cyan-9);
+}
+
+.toast-info .toast-icon {
+  color: var(--cyan-10);
 }
 
 @media (max-width: 900px) {

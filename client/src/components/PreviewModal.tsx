@@ -34,6 +34,7 @@ export const PreviewModal = ({
   // Separate modal keeps timeline area dense while still allowing deep preview inspection.
   <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
     <Dialog.Content maxWidth="1400px" className="preview-dialog-content">
+      <Dialog.Title className="visually-hidden">Conversation Preview</Dialog.Title>
       <Flex justify="between" align="center" gap="4" mb="3">
         <div>
           <Heading size="6">Conversation Preview</Heading>

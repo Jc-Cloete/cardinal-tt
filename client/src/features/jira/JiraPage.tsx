@@ -11,6 +11,9 @@ import {
   TextField,
 } from '@radix-ui/themes'
 import { useEffect, useMemo, useState } from 'react'
+import { MultiSelectDropdown } from '../../components/MultiSelectDropdown'
+import { useToast } from '../../notifications/ToastProvider'
+import type { JiraDefaultSettings } from '../settings/types'
 import { useJira } from './useJira'
 
 const formatSyncLabel = (syncedAt: string | null): string => {
@@ -24,7 +27,33 @@ const formatSyncLabel = (syncedAt: string | null): string => {
   return new Date(timestamp).toLocaleString()
 }
 
-export const JiraPage = () => {
+type JiraPageProps = {
+  defaults: JiraDefaultSettings
+}
+
+const matchDefaultFilters = (defaults: string[], options: string[]): string[] => {
+  const optionLookup = new Map<string, string>()
+  for (const option of options) {
+    const normalized = option.trim().toLowerCase()
+    if (normalized.length > 0 && !optionLookup.has(normalized)) {
+      optionLookup.set(normalized, option)
+    }
+  }
+
+  const selected: string[] = []
+  for (const value of defaults) {
+    const normalized = value.trim().toLowerCase()
+    const match = optionLookup.get(normalized)
+    if (match && !selected.includes(match)) {
+      selected.push(match)
+    }
+  }
+
+  return selected
+}
+
+export const JiraPage = ({ defaults }: JiraPageProps) => {
+  const { info: showInfoToast } = useToast()
   const {
     loading,
     mutating,
@@ -34,6 +63,7 @@ export const JiraPage = () => {
     transitions,
     selectedProjectKey,
     selectedIssueKey,
+    loadedIssuesProjectKey,
     projectsSync,
     issuesSync,
     setSelectedProjectKey,
@@ -51,10 +81,42 @@ export const JiraPage = () => {
   const [newDescription, setNewDescription] = useState<string>('')
   const [newStatusName, setNewStatusName] = useState<string>('')
   const [newIssueTypeName, setNewIssueTypeName] = useState<string>('Task')
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([])
+  const [hasAppliedProjectDefault, setHasAppliedProjectDefault] = useState<boolean>(false)
+  const [defaultsAppliedForProjectKey, setDefaultsAppliedForProjectKey] = useState<string>('')
+
+  const statusFilterOptions = useMemo(
+    () =>
+      Array.from(new Set(issues.map((issue) => issue.statusName || 'Unknown status'))).sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [issues],
+  )
+
+  const assigneeFilterOptions = useMemo(
+    () =>
+      Array.from(new Set(issues.map((issue) => issue.assigneeDisplayName || 'Unassigned'))).sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [issues],
+  )
+
+  const filteredIssues = useMemo(
+    () =>
+      issues.filter((issue) => {
+        const status = issue.statusName || 'Unknown status'
+        const assignee = issue.assigneeDisplayName || 'Unassigned'
+        const statusMatch = selectedStatuses.length === 0 || selectedStatuses.includes(status)
+        const assigneeMatch = selectedAssignees.length === 0 || selectedAssignees.includes(assignee)
+        return statusMatch && assigneeMatch
+      }),
+    [issues, selectedAssignees, selectedStatuses],
+  )
 
   const selectedIssue = useMemo(
-    () => issues.find((issue) => issue.issueKey === selectedIssueKey) || null,
-    [issues, selectedIssueKey],
+    () => filteredIssues.find((issue) => issue.issueKey === selectedIssueKey) || null,
+    [filteredIssues, selectedIssueKey],
   )
 
   useEffect(() => {
@@ -65,6 +127,69 @@ export const JiraPage = () => {
       return transitions[0]?.transitionId || ''
     })
   }, [transitions])
+
+  useEffect(() => {
+    if (hasAppliedProjectDefault || projects.length === 0) {
+      return
+    }
+
+    const defaultProjectKey = defaults.defaultProjectKey.trim()
+    if (defaultProjectKey && projects.some((project) => project.projectKey === defaultProjectKey)) {
+      setSelectedProjectKey(defaultProjectKey)
+    }
+    setHasAppliedProjectDefault(true)
+  }, [defaults.defaultProjectKey, hasAppliedProjectDefault, projects, setSelectedProjectKey])
+
+  useEffect(() => {
+    if (!selectedProjectKey || defaultsAppliedForProjectKey === selectedProjectKey) {
+      return
+    }
+    if (loadedIssuesProjectKey !== selectedProjectKey) {
+      return
+    }
+
+    const issuesBelongToSelectedProject =
+      issues.length === 0 || issues.every((issue) => issue.projectKey === selectedProjectKey)
+    if (!issuesBelongToSelectedProject) {
+      return
+    }
+
+    setSelectedStatuses(matchDefaultFilters(defaults.defaultStatusFilters, statusFilterOptions))
+    setSelectedAssignees(
+      matchDefaultFilters(defaults.defaultAssigneeFilters, assigneeFilterOptions),
+    )
+    setDefaultsAppliedForProjectKey(selectedProjectKey)
+  }, [
+    assigneeFilterOptions,
+    defaultsAppliedForProjectKey,
+    defaults.defaultAssigneeFilters,
+    defaults.defaultStatusFilters,
+    selectedProjectKey,
+    loadedIssuesProjectKey,
+    issues,
+    statusFilterOptions,
+  ])
+
+  useEffect(() => {
+    if (filteredIssues.length === 0) {
+      if (selectedIssueKey) {
+        setSelectedIssueKey('')
+      }
+      return
+    }
+
+    if (!filteredIssues.some((issue) => issue.issueKey === selectedIssueKey)) {
+      setSelectedIssueKey(filteredIssues[0]?.issueKey || '')
+    }
+  }, [filteredIssues, selectedIssueKey, setSelectedIssueKey])
+
+  useEffect(() => {
+    setSelectedStatuses((prev) => prev.filter((value) => statusFilterOptions.includes(value)))
+  }, [statusFilterOptions])
+
+  useEffect(() => {
+    setSelectedAssignees((prev) => prev.filter((value) => assigneeFilterOptions.includes(value)))
+  }, [assigneeFilterOptions])
 
   return (
     <Card className="card">
@@ -90,17 +215,20 @@ export const JiraPage = () => {
           </Select.Root>
         </div>
 
-        <Button onClick={() => void refreshProjects(false)} disabled={loading}>
+        <Button onClick={() => void refreshProjects(false, true)} disabled={loading}>
           Reload Projects
         </Button>
-        <Button onClick={() => void refreshProjects(true)} disabled={loading} variant="soft">
+        <Button onClick={() => void refreshProjects(true, true)} disabled={loading} variant="soft">
           Force Refresh Projects
         </Button>
-        <Button onClick={() => void refreshIssues(false)} disabled={loading || !selectedProjectKey}>
+        <Button
+          onClick={() => void refreshIssues(false, true)}
+          disabled={loading || !selectedProjectKey}
+        >
           Reload Tickets
         </Button>
         <Button
-          onClick={() => void refreshIssues(true)}
+          onClick={() => void refreshIssues(true, true)}
           disabled={loading || !selectedProjectKey}
           variant="soft"
         >
@@ -132,14 +260,44 @@ export const JiraPage = () => {
           <Heading size="4" mb="2">
             Tickets
           </Heading>
+          <Flex gap="2" mb="2" wrap="wrap" align="start">
+            <MultiSelectDropdown
+              label="Status"
+              options={statusFilterOptions}
+              selected={selectedStatuses}
+              onChange={setSelectedStatuses}
+              anyLabel="Any"
+              searchPlaceholder="Search statuses..."
+            />
+            <MultiSelectDropdown
+              label="Assignee"
+              options={assigneeFilterOptions}
+              selected={selectedAssignees}
+              onChange={setSelectedAssignees}
+              anyLabel="Any"
+              searchPlaceholder="Search assignees..."
+            />
+            <Button
+              variant="soft"
+              onClick={() => {
+                setSelectedStatuses([])
+                setSelectedAssignees([])
+                showInfoToast('Filters cleared', 'Status and assignee filters were reset.')
+              }}
+            >
+              Clear Filters
+            </Button>
+          </Flex>
           <ScrollArea type="auto" scrollbars="vertical" style={{ maxHeight: 420 }}>
             <div className="cardinal-list">
-              {issues.length === 0 ? (
+              {filteredIssues.length === 0 ? (
                 <Text size="2" color="gray">
-                  No Jira tickets for selected project.
+                  {issues.length === 0
+                    ? 'No Jira tickets for selected project.'
+                    : 'No tickets match the selected filters.'}
                 </Text>
               ) : null}
-              {issues.map((issue) => (
+              {filteredIssues.map((issue) => (
                 <button
                   key={issue.issueKey}
                   type="button"

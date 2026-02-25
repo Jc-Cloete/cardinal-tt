@@ -48,3 +48,12 @@ export type JiraTransitionsResponse = {
 export type JiraIssueResponse = {
   issue: JiraIssue
 }
+
+export type JiraFilterOptionsResponse = {
+  projects: JiraProject[]
+  statuses: string[]
+  assignees: string[]
+  source: 'cache' | 'remote' | 'cache_fallback'
+  synced_at: string | null
+  stale: boolean
+}

@@ -52,7 +52,13 @@ Session explorer:
 - `GET /api/days?year=...&month=...`
 - `GET /api/projects?year=...&month=...&day=...`
 - `GET /api/files?year=...&month=...&day=...&project=...&conversation_break_limit=...`
-- `GET /api/file?year=...&month=...&day=...&file=...`
+- `GET /api/file?relative_path=...` (preferred)
+- `GET /api/file?year=...&month=...&day=...&file=...` (legacy fallback)
+
+Session explorer notes:
+
+- `/api/projects` and `/api/files` include conversations by timestamp overlap with the selected day, even when the source `.jsonl` file lives under a different day folder.
+- Each file payload includes both `name` and stable `relativePath` (path from `DATA_ROOT`), so preview lookup stays correct for cross-day conversations.
 
 CardinalDiff:
 
@@ -70,8 +76,25 @@ CardinalDiff:
 Jira:
 
 - `GET /api/jira/projects?refresh=0|1`
+- `GET /api/jira/filter-options?refresh=0|1`
 - `GET /api/jira/issues?project_key=...&refresh=0|1`
 - `GET /api/jira/issues/:issueKey/transitions`
 - `POST /api/jira/issues/:issueKey/comment`
 - `POST /api/jira/issues/:issueKey/status`
 - `POST /api/jira/issues`
+
+Jira integration notes:
+
+- Issue list retrieval uses `/rest/api/3/search/jql`.
+- Auth precedence:
+  - `JIRA_EMAIL` + `JIRA_API_TOKEN` (Basic auth) when both are provided.
+  - otherwise `JIRA_AUTH_TOKEN` (Bearer by default unless already prefixed with `Basic ` or `Bearer `).
+- `GET /api/jira/filter-options` returns:
+  - Jira projects
+  - distinct status values
+  - distinct assignee values
+  - cache source/sync metadata (`source`, `synced_at`, `stale`)
+- Filter option hydration:
+  - uses cache first
+  - refreshes issue caches per project when forced or when status/assignee options are empty
+  - can return `cache_fallback` with `stale=true` when remote sync fails but cached data exists.

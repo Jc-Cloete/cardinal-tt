@@ -7,7 +7,7 @@ type TimelinePanelProps = {
   day: string
   timelineModel: TimelineModel
   activeFile: string
-  onSelectFile: (name: string) => void
+  onSelectFile: (relativePath: string) => void
 }
 
 export const TimelinePanel = ({
@@ -72,16 +72,16 @@ export const TimelinePanel = ({
                     {section.items.map((session) => (
                       <button
                         type="button"
-                        className={`timeline-block ${activeFile === session.name ? 'active' : ''}`}
+                        className={`timeline-block ${activeFile === session.relativePath ? 'active' : ''}`}
                         style={{
                           top: `${session.topPct}%`,
                           height: `${session.heightPct}%`,
                           left: `${session.leftPct}%`,
                           width: `${session.widthPct}%`,
                         }}
-                        onClick={() => onSelectFile(session.name)}
+                        onClick={() => onSelectFile(session.relativePath)}
                         title={`${session.startLabel} - ${session.endLabel} | ${session.projectDir} | Part ${session.segmentIndex + 1}/${session.segmentCount}`}
-                        key={`${session.name}-${session.segmentIndex}-${section.id}`}
+                        key={`${session.relativePath}-${session.segmentIndex}-${section.id}`}
                       >
                         <span className="timeline-block-title">
                           Conversation {session.conversationIndex} · Part {session.segmentIndex + 1}

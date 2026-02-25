@@ -10,6 +10,8 @@ import { CardinalEventsPage } from './features/cardinal/CardinalEventsPage'
 import { CardinalHeartbeatBadge } from './features/cardinal/CardinalHeartbeatBadge'
 import { useCardinalStatus } from './features/cardinal/useCardinalStatus'
 import { JiraPage } from './features/jira/JiraPage'
+import { SettingsPage } from './features/settings/SettingsPage'
+import { useAppSettings } from './features/settings/useAppSettings'
 import { useConversationExplorer } from './hooks/useConversationExplorer'
 import { clientLogger } from './observability/logger'
 import type { SessionFile } from './types'
@@ -17,7 +19,7 @@ import { getProjectDisplayName } from './utils/display'
 import { parsePreviewMessages } from './utils/preview'
 import { buildCompressedTimeline } from './utils/timeline'
 
-type AppPage = 'explorer' | 'events' | 'jira'
+type AppPage = 'explorer' | 'events' | 'jira' | 'settings'
 
 const appLogger = clientLogger.child({ component: 'app' })
 
@@ -56,6 +58,7 @@ export default function App() {
     trackProject,
     untrackProject,
   } = useCardinalStatus()
+  const { settings, setJiraDefaults, resetSettings } = useAppSettings()
 
   const [page, setPage] = useState<AppPage>('explorer')
 
@@ -68,7 +71,7 @@ export default function App() {
   )
 
   const activeSession = useMemo<SessionFile | null>(
-    () => files.find((item) => item.name === activeFile) || null,
+    () => files.find((item) => item.relativePath === activeFile) || null,
     [files, activeFile],
   )
 
@@ -153,6 +156,12 @@ export default function App() {
           <Button variant={page === 'jira' ? 'solid' : 'soft'} onClick={() => setPage('jira')}>
             Jira
           </Button>
+          <Button
+            variant={page === 'settings' ? 'solid' : 'soft'}
+            onClick={() => setPage('settings')}
+          >
+            Settings
+          </Button>
           <ThemeToggle />
         </Flex>
       </Flex>
@@ -189,8 +198,14 @@ export default function App() {
         </>
       ) : page === 'events' ? (
         <CardinalEventsPage projects={trackedProjects} />
+      ) : page === 'jira' ? (
+        <JiraPage defaults={settings.jira} />
       ) : (
-        <JiraPage />
+        <SettingsPage
+          jiraDefaults={settings.jira}
+          onSaveJiraDefaults={setJiraDefaults}
+          onResetAllSettings={resetSettings}
+        />
       )}
 
       <PreviewModal

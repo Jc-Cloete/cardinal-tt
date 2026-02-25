@@ -23,6 +23,45 @@ export type JiraSyncResponse<T> = {
   stale: boolean
 }
 
+export type JiraFilterOptionsResponse = {
+  projects: JiraProject[]
+  statuses: string[]
+  assignees: string[]
+  source: 'cache' | 'remote' | 'cache_fallback'
+  syncedAt: string | null
+  stale: boolean
+}
+
+const resolveCompositeSource = (
+  sources: Array<'cache' | 'remote' | 'cache_fallback'>,
+): 'cache' | 'remote' | 'cache_fallback' => {
+  if (sources.includes('cache_fallback')) {
+    return 'cache_fallback'
+  }
+  if (sources.includes('remote')) {
+    return 'remote'
+  }
+  return 'cache'
+}
+
+const latestSyncedAt = (timestamps: Array<string | null>): string | null => {
+  let latest: string | null = null
+  let latestTs = Number.NEGATIVE_INFINITY
+
+  for (const timestamp of timestamps) {
+    if (!timestamp) {
+      continue
+    }
+    const parsed = Date.parse(timestamp)
+    if (Number.isFinite(parsed) && parsed > latestTs) {
+      latestTs = parsed
+      latest = timestamp
+    }
+  }
+
+  return latest
+}
+
 const nowIso = (): string => new Date().toISOString()
 
 const isSyncFresh = (syncedAt: string | null, ttlMs: number): boolean => {
@@ -211,6 +250,53 @@ export const listJiraIssues = async (
           }
         }
         throw error
+      }
+    },
+  )
+
+export const listJiraFilterOptions = async (
+  forceRefresh: boolean,
+): Promise<JiraFilterOptionsResponse> =>
+  logger.run(
+    {
+      event: 'server.jira.filter_options.list',
+      fields: {
+        force_refresh: forceRefresh,
+      },
+    },
+    async () => {
+      const projectsResult = await listJiraProjects(forceRefresh)
+      let statuses = store.listJiraIssueStatusOptions()
+      let assignees = store.listJiraIssueAssigneeOptions()
+      const shouldHydrateIssues = forceRefresh || statuses.length === 0 || assignees.length === 0
+      const issueResults: Array<JiraSyncResponse<JiraIssue>> = []
+
+      if (shouldHydrateIssues) {
+        const refreshedIssues = await Promise.all(
+          projectsResult.items.map((project) => listJiraIssues(project.projectKey, forceRefresh)),
+        )
+        issueResults.push(...refreshedIssues)
+        statuses = store.listJiraIssueStatusOptions()
+        assignees = store.listJiraIssueAssigneeOptions()
+      }
+
+      const stale = projectsResult.stale || issueResults.some((result) => result.stale)
+      const source = resolveCompositeSource([
+        projectsResult.source,
+        ...issueResults.map((result) => result.source),
+      ])
+      const syncedAt = latestSyncedAt([
+        projectsResult.syncedAt,
+        ...issueResults.map((result) => result.syncedAt),
+      ])
+
+      return {
+        projects: projectsResult.items,
+        statuses,
+        assignees,
+        source,
+        syncedAt,
+        stale,
       }
     },
   )

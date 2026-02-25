@@ -302,6 +302,8 @@ describe('cardinal-store createCardinalStore', () => {
       expect(store.getJiraSyncAt('issues:APP')).toBe(now)
       expect(store.listJiraIssues('APP')).toHaveLength(1)
       expect(store.listJiraIssues('APP')[0]?.statusName).toBe('To Do')
+      expect(store.listJiraIssueStatusOptions()).toEqual(['To Do'])
+      expect(store.listJiraIssueAssigneeOptions()).toEqual(['Bob'])
 
       store.upsertJiraIssue({
         jiraIssueId: '20001',
@@ -319,6 +321,8 @@ describe('cardinal-store createCardinalStore', () => {
       })
 
       expect(store.listJiraIssues('APP')[0]?.statusName).toBe('In Progress')
+      expect(store.listJiraIssueStatusOptions()).toEqual(['In Progress'])
+      expect(store.listJiraIssueAssigneeOptions()).toEqual(['Bob'])
     } finally {
       cleanup(rootDir)
     }

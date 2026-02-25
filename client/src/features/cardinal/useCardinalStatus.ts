@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { API } from '../../constants'
+import { useToast } from '../../notifications/ToastProvider'
 import { clientLogger } from '../../observability/logger'
 import { fetchJson, fetchText } from '../../utils/fetch'
 import type {
@@ -32,6 +33,7 @@ const getProjectNameFromPath = (rootPath: string): string => {
 }
 
 export const useCardinalStatus = (): UseCardinalStatusResult => {
+  const { success: showSuccessToast, error: showErrorToast, info: showInfoToast } = useToast()
   // Poll both project list and heartbeat so UI can immediately reflect tracking/service health changes.
   const [projects, setProjects] = useState<CardinalProject[]>([])
   const [heartbeat, setHeartbeat] = useState<CardinalHeartbeat | null>(null)
@@ -123,23 +125,29 @@ export const useCardinalStatus = (): UseCardinalStatusResult => {
             root_path: rootPath,
           },
         })
+        showSuccessToast(
+          'Project tracking added',
+          `${getProjectNameFromPath(rootPath)} is now tracked by CardinalDiff.`,
+        )
         await loadProjects()
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '')
         statusLogger.log({
           event: 'client.cardinal.project.track.failed',
           level: 'error',
           outcome: 'error',
-          error: error instanceof Error ? error : String(error),
+          error: message,
           fields: {
             root_path: rootPath,
           },
         })
+        showErrorToast('Failed to add project tracking', message)
         throw error
       } finally {
         setMutating(false)
       }
     },
-    [loadProjects],
+    [loadProjects, showErrorToast, showSuccessToast],
   )
 
   const untrackProject = useCallback(
@@ -155,23 +163,26 @@ export const useCardinalStatus = (): UseCardinalStatusResult => {
             project_id: projectId,
           },
         })
+        showInfoToast('Project tracking removed', 'CardinalDiff will no longer track this project.')
         await loadProjects()
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '')
         statusLogger.log({
           event: 'client.cardinal.project.untrack.failed',
           level: 'error',
           outcome: 'error',
-          error: error instanceof Error ? error : String(error),
+          error: message,
           fields: {
             project_id: projectId,
           },
         })
+        showErrorToast('Failed to remove project tracking', message)
         throw error
       } finally {
         setMutating(false)
       }
     },
-    [loadProjects],
+    [loadProjects, showErrorToast, showInfoToast],
   )
 
   useEffect(() => {

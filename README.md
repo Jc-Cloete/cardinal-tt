@@ -8,6 +8,7 @@ Monorepo for exploring Codex session data and tracking local project filesystem 
 - `server`: Express API for browsing session files, cache-backed parsing, and CardinalDiff API adapters.
 - `cardinal-diff`: macOS background service + CLI that watches projects with FSEvents and writes immutable commits.
 - `cardinal-store`: shared SQLite schema, types, and queries used by both `server` and `cardinal-diff`.
+- `cardinal-observability`: shared structured wide-event logging package used across workspaces.
 - `docs`: product/engineering specs.
 
 Module documentation:
@@ -16,6 +17,7 @@ Module documentation:
 - `server/README.md`
 - `cardinal-diff/README.md`
 - `cardinal-store/README.md`
+- `cardinal-observability/README.md`
 - `docs/README.md`
 
 Core specs:
@@ -75,6 +77,7 @@ Common variables:
 ## Current Feature Set
 
 - Browse sessions by year/month/day/project.
+- Show cross-day conversations on each day timeline where they have message activity.
 - Filtered message preview (developer + internal/system event filtering).
 - Vertical timeline with idle-gap compression and overlap lanes.
 - Conversation segments based on configurable inactivity breaks.
@@ -82,8 +85,17 @@ Common variables:
 - CardinalDiff heartbeat health indicator.
 - Cardinal events page with date/time range filtering.
 - Jira workbench page (projects, tickets, comments, status transitions, ticket creation).
+- Settings page for Jira defaults (default project, default status filters, default assignee filters).
+- Searchable multi-select dropdowns for Jira status/assignee filtering.
+- Global top-right toast notifications for user-triggered success/error/info/warning feedback.
 - Force-refresh option to bypass cached session parsing.
 - CardinalDiff scans that honor both `.cardinaldiffignore` and layered `.gitignore` rules.
+
+Jira caching/filter options behavior:
+
+- Server exposes `GET /api/jira/filter-options` that returns projects plus distinct status/assignee options.
+- Filter options are sourced from cache when possible and hydrated from remote Jira when stale/empty/forced.
+- Jira issue list loading in the client guards against stale in-flight responses when switching projects quickly.
 
 ## CardinalDiff Maintenance
 

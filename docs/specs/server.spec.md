@@ -39,7 +39,8 @@ Environment:
 3. Cache processed file data using stable hash + file metadata checks to avoid repeated work.
 4. Expose CardinalDiff endpoints under `/api/cardinal/*`.
 5. Expose Jira endpoints under `/api/jira/*` with cache/refresh semantics.
-6. Enforce safe path resolution against traversal attempts.
+6. Derive Jira filter option metadata (project/status/assignee) from cache and remote hydration.
+7. Enforce safe path resolution against traversal attempts.
 
 ## 5. Session Processing Contract
 
@@ -62,6 +63,16 @@ Conversation segmentation:
 
 - Segments are split on inactivity gaps greater than `conversation_break_limit` minutes.
 - Files without timestamps use modified-time fallback for start/end.
+- Day timeline inclusion is segment-overlap based:
+  - a conversation appears on each day where at least one segment overlaps that day range.
+  - a day with only idle gap between segments does not include that conversation.
+
+Session file identity:
+
+- Session list entries include:
+  - `name` (basename, display-only)
+  - `relativePath` (stable path relative to `DATA_ROOT`, used by clients as the canonical file key)
+- `GET /api/file` accepts `relative_path` for cross-day-safe preview lookups.
 
 Caching behavior:
 
@@ -96,6 +107,7 @@ Health:
 Project/issue listing:
 
 - `GET /api/jira/projects?refresh=0|1`
+- `GET /api/jira/filter-options?refresh=0|1`
 - `GET /api/jira/issues?project_key=...&refresh=0|1`
 
 Issue actions:
@@ -110,6 +122,18 @@ Cache behavior:
 - List endpoints return cached data when fresh.
 - `refresh=1` forces remote Jira sync and updates sqlite cache.
 - On remote failures, stale cached data may be returned when available (with stale markers).
+- `GET /api/jira/filter-options` behavior:
+  - always returns projects.
+  - returns distinct status/assignee values from cached Jira issues.
+  - when forced refresh OR when status/assignee cache is empty, server hydrates issues per project.
+  - returns composite sync metadata (`source`, `synced_at`, `stale`) based on project and issue sync outcomes.
+
+Remote Jira behavior:
+
+- Issue search uses `/rest/api/3/search/jql`.
+- Jira auth precedence:
+  - `JIRA_EMAIL` + `JIRA_API_TOKEN` first (Basic auth).
+  - otherwise `JIRA_AUTH_TOKEN` (Bearer default unless prefixed).
 
 Validation rules:
 

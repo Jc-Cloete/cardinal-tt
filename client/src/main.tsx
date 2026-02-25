@@ -2,6 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import '@radix-ui/themes/styles.css'
 import App from './App'
+import { ToastProvider } from './notifications/ToastProvider'
 import { clientLogger } from './observability/logger'
 import './styles.css'
 import { ThemePreferenceProvider } from './theme/ThemePreferenceProvider'
@@ -32,7 +33,9 @@ mainLogger.log({
 createRoot(rootElement).render(
   <React.StrictMode>
     <ThemePreferenceProvider>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </ThemePreferenceProvider>
   </React.StrictMode>,
 )

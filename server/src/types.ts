@@ -19,6 +19,7 @@ export type SessionSummary = {
 
 export type SessionFile = {
   name: string
+  relativePath: string
   projectDir: string
   startedAt: string
   endedAt: string
