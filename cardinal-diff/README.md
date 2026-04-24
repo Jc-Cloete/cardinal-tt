@@ -60,5 +60,6 @@ Ignore behavior:
 - `src/service.ts`: domain service layer for projects/commits/scans.
 - `src/diff.ts`: textual/binary diff generation from commit entries and blob store.
 - `src/object-store.ts`: blob sharding and retrieval.
+- `src/path-utils.ts`: shared filesystem path normalization helpers.
 - `src/db.ts`: shared-store bindings.
 - `src/types.ts`: re-exports strict shared types from `cardinal-store`.

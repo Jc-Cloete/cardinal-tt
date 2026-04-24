@@ -2,8 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { minimatch } from 'minimatch'
 import { DEFAULT_IGNORE_PATTERNS } from './defaults'
+import { toPosixPath } from './path-utils'
 
-const toPosixPath = (value: string): string => value.split(path.sep).join('/')
 const globOptions = { dot: true, nocase: false }
 
 export type GitIgnoreRule = {

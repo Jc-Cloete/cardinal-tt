@@ -30,6 +30,7 @@ bun run typecheck
 - `src/features/settings/*`: persisted app settings for Jira defaults and options loading.
 - `src/notifications/ToastProvider.tsx`: global toast provider and `useToast` hook.
 - `src/theme/ThemePreferenceProvider.tsx`: dark-mode default + persisted user preference.
+- `src/utils/date.ts`: shared date/time conversion and display helpers for explorer, Cardinal, and activity UI.
 - `src/utils/timeline.ts`: vertical timeline model builder (segments, compression, lane assignment).
 - `src/utils/preview.ts`: JSONL preview parsing into readable chat cards.
 - `src/types.ts`: strict app-level DTOs and JSON types.

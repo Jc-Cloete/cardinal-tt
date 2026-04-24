@@ -2,33 +2,12 @@ import type { JsonObject, JsonValue } from 'cardinal-store'
 import { jiraConfig } from '../config'
 import { serverLogger } from '../observability/logger'
 import type { JiraIssue, JiraProject, JiraTransition } from '../types'
+import { asArray, asBoolean, asNumber, asObject, asString } from '../utils/json'
 
 const jiraLogger = serverLogger.child({ component: 'jira-client' })
 
 const JIRA_ISSUE_FIELDS = 'summary,status,issuetype,assignee,priority,updated,project'
 const PAGE_SIZE = 50
-
-const asObject = (value: JsonValue | null | undefined): JsonObject | null =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as JsonObject)
-    : null
-
-const asArray = (value: JsonValue | null | undefined): JsonValue[] =>
-  Array.isArray(value) ? value : []
-
-const asString = (value: JsonValue | null | undefined): string | null =>
-  typeof value === 'string' ? value : null
-
-const asNumber = (value: JsonValue | null | undefined): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value
-  }
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-const asBoolean = (value: JsonValue | null | undefined): boolean | null =>
-  typeof value === 'boolean' ? value : null
 
 const buildAuthHeader = (): string => {
   // Prefer Jira Cloud API token auth when explicit email/token are provided.

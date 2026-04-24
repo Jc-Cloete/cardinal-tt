@@ -10,10 +10,8 @@ import {
   Separator,
   Text,
 } from '@radix-ui/themes'
+import { formatUnixNs } from '../../utils/date'
 import { useCardinalDiff } from './useCardinalDiff'
-
-const formatNs = (value: number): string =>
-  value > 0 ? new Date(Math.floor(value / 1_000_000)).toLocaleString() : '--'
 
 export const CardinalDiffPanel = () => {
   const {
@@ -119,7 +117,7 @@ export const CardinalDiffPanel = () => {
                     <Badge color="cyan">{commit.changeCount} changes</Badge>
                   </span>
                   <small>
-                    {formatNs(commit.startedAtNs)} - {formatNs(commit.endedAtNs)}
+                    {formatUnixNs(commit.startedAtNs)} - {formatUnixNs(commit.endedAtNs)}
                   </small>
                 </button>
               ))}

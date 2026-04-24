@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  dateTimeToIso,
+  dateTimeToMs,
+  dateTimeToNs,
   formatDuration,
   formatTime,
+  formatUnixNs,
   getDayBounds,
+  getTodayDate,
   normalizeNumericDatePart,
   parseTimeMs,
   pickDateOption,
@@ -30,11 +35,20 @@ describe('client date utils', () => {
     expect(getDayBounds('', '02', '20')).toBeNull()
   })
 
+  it('centralizes date/time input conversion helpers', () => {
+    const timestamp = dateTimeToMs('2026-02-20', '10:30')
+    expect(timestamp).toBe(Date.parse('2026-02-20T10:30:00'))
+    expect(dateTimeToNs('2026-02-20', '10:30')).toBe((timestamp || 0) * 1_000_000)
+    expect(dateTimeToIso('', '10:30')).toBeNull()
+    expect(getTodayDate()).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
   it('parses time values with fallback and formats duration/time labels', () => {
     const fallback = 12345
     expect(parseTimeMs('not-a-time', fallback)).toBe(fallback)
     expect(parseTimeMs('2026-02-20T10:00:00.000Z')).toBeGreaterThan(fallback)
     expect(formatDuration(3_660_000)).toBe('01h 01m')
     expect(formatTime(Number.NaN)).toBe('--:--')
+    expect(formatUnixNs(0)).toBe('--')
   })
 })

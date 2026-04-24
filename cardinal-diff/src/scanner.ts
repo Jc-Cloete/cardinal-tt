@@ -6,9 +6,9 @@ import {
   isIgnoredPath,
   loadGitIgnoreRulesFromDirectory,
 } from './ignore'
+import { toPosixPath } from './path-utils'
 import type { IndexEntry, ScanStats } from './types'
 
-const toPosixPath = (value: string): string => value.split(path.sep).join('/')
 const toNs = (mtimeMs: number): number => Math.round(mtimeMs * 1_000_000)
 
 type ScanTreeResult = {

@@ -56,7 +56,7 @@ See `docs/security.md` for the full posture.
 - `src/cache/cardinal-diff.ts`: adapters from shared Cardinal store types to API responses.
 - `src/cache/jira.ts`: Jira cache orchestration (freshness checks, fallback policy, sync writes).
 - `src/integrations/jira-client.ts`: typed Jira REST client.
-- `src/utils/*`: path safety, hashing, JSON guards, query parsing, and centralized runtime validation.
+- `src/utils/*`: path safety, hashing, centralized JSON coercion guards, query parsing, and runtime validation.
 - `src/types.ts`: strict shared server-side DTOs.
 
 ## Contract Tests

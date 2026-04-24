@@ -2,30 +2,12 @@ import { Button, Card, Flex, Heading, ScrollArea, Select, Text, TextField } from
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { API } from '../../constants'
 import { useToast } from '../../notifications/ToastProvider'
+import { dateTimeToNs, formatUnixNs, getTodayDate } from '../../utils/date'
 import { fetchJson } from '../../utils/fetch'
 import type { CardinalDiffEntry, CardinalEventsResponse, CardinalProject } from './types'
 
 type CardinalEventsPageProps = {
   projects: CardinalProject[]
-}
-
-const dateTimeToNs = (dateValue: string, timeValue: string): number | null => {
-  if (!dateValue || !timeValue) {
-    return null
-  }
-  const timestamp = Date.parse(`${dateValue}T${timeValue}:00`)
-  return Number.isFinite(timestamp) ? timestamp * 1_000_000 : null
-}
-
-const formatNs = (value: number): string =>
-  value > 0 ? new Date(Math.floor(value / 1_000_000)).toLocaleString() : '--'
-
-const getTodayDate = (): string => {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 export const CardinalEventsPage = ({ projects }: CardinalEventsPageProps) => {
@@ -204,7 +186,7 @@ export const CardinalEventsPage = ({ projects }: CardinalEventsPageProps) => {
                 </Text>
               ) : null}
               <Text as="div" size="1" color="gray">
-                {formatNs(event.startedAtNs)} to {formatNs(event.endedAtNs)}
+                {formatUnixNs(event.startedAtNs)} to {formatUnixNs(event.endedAtNs)}
               </Text>
             </article>
           ))}

@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { toPosixPath } from './utils/path'
 
 const specIdPattern = /\bSPEC-[A-Z0-9]+(?:-[A-Z0-9]+)*\b/g
 const testDirectories = [
@@ -66,8 +67,6 @@ export const evaluateSpecReferences = ({ specFiles, testFiles }: SpecReferenceIn
 
   return failures
 }
-
-const toPosixPath = (value: string): string => value.split(path.sep).join('/')
 
 const collectFiles = (
   repoRoot: string,

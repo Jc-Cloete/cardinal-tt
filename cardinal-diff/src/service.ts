@@ -26,6 +26,7 @@ import { DEFAULT_IGNORE_PATTERNS } from './defaults'
 import { loadProjectIgnoreRules } from './ignore'
 import { storeBlobFromFile } from './object-store'
 import { diffLogger } from './observability'
+import { toPosixPath } from './path-utils'
 import { projectsDir } from './paths'
 import {
   getMinimalDirtyRoots,
@@ -51,8 +52,6 @@ const isPathInsideHome = (absolutePath: string): boolean => {
   const normalized = path.resolve(absolutePath)
   return normalized === home || normalized.startsWith(`${home}${path.sep}`)
 }
-
-const toPosixPath = (value: string): string => value.split(path.sep).join('/')
 
 const materializeContentRefs = (
   rootPath: string,

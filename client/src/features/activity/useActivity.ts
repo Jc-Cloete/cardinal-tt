@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { API } from '../../constants'
 import { useToast } from '../../notifications/ToastProvider'
 import { clientLogger } from '../../observability/logger'
+import { dateTimeToIso, getTodayDate } from '../../utils/date'
 import { fetchJson } from '../../utils/fetch'
 import type {
   ActivityHeartbeat,
@@ -13,22 +14,6 @@ import type {
 } from './types'
 
 const activityLogger = clientLogger.child({ component: 'use-activity' })
-
-const getTodayDate = (): string => {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-const toIso = (dateValue: string, timeValue: string): string | null => {
-  const parsed = Date.parse(`${dateValue}T${timeValue}:00`)
-  if (!Number.isFinite(parsed)) {
-    return null
-  }
-  return new Date(parsed).toISOString()
-}
 
 type UseActivityResult = {
   day: string
@@ -64,8 +49,8 @@ export const useActivity = (): UseActivityResult => {
 
   const rangeIso = useMemo(
     () => ({
-      fromIso: toIso(day, fromTime),
-      toIso: toIso(day, toTime),
+      fromIso: dateTimeToIso(day, fromTime),
+      toIso: dateTimeToIso(day, toTime),
     }),
     [day, fromTime, toTime],
   )

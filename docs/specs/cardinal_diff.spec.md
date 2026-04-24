@@ -71,6 +71,7 @@ Stores full file blobs for changed text files (and optionally binaries) to allow
 * Must tolerate editor temp files and rapid changes
 * Crash-safe: commits are atomic, index consistent
 * Scales to large repos (100k+ files) with ignores
+* Path normalization shared by scanner, ignore, agent, and service logic must live in `src/path-utils.ts`
 
 ### 6. Platform / Runtime
 

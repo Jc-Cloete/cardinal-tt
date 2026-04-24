@@ -118,6 +118,13 @@ Spec IDs are enforced by `scripts/spec-enforcement.ts`:
 Root `bun run lint` is intentionally a single repository-wide Biome pass. Workspace `lint` scripts remain
 available for targeted package checks, but the root command avoids rechecking the same files multiple times.
 
+Reusable utility ownership:
+
+- Client date/time parsing and display helpers live in `client/src/utils/date.ts`.
+- CardinalDiff path normalization lives in `cardinal-diff/src/path-utils.ts`.
+- Server JSON coercion helpers live in `server/src/utils/json.ts`.
+- Script path normalization lives in `scripts/utils/path.ts`.
+
 ## Runtime Data Paths
 
 - Session source root: `~/.codex/sessions` by default, override with `DATA_ROOT`.

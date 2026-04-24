@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { dataRoot } from '../config'
 import { readDir, resolveSafePath, toPosixPath } from '../utils/fs-paths'
+import { asArray, asBoolean, asNumber, asObject, asString, parseJsonRecord } from '../utils/json'
 import { getConversationBreakLimitMinutes, isForceRefresh } from '../utils/requests'
 import {
   failValidation,
@@ -132,5 +133,16 @@ describe('server request/path utilities', () => {
   it('returns an empty listing when directory access fails', () => {
     const missingPath = path.join(os.tmpdir(), `server-missing-${Date.now()}`)
     expect(readDir(missingPath)).toEqual([])
+  })
+
+  it('centralizes JSON coercion helpers', () => {
+    const parsed = parseJsonRecord('{"name":"demo","count":2,"enabled":true,"items":[1]}')
+
+    expect(asObject(parsed)).toEqual(parsed)
+    expect(asString(parsed?.name)).toBe('demo')
+    expect(asNumber(parsed?.count)).toBe(2)
+    expect(asBoolean(parsed?.enabled)).toBe(true)
+    expect(asArray(parsed?.items)).toEqual([1])
+    expect(parseJsonRecord('nope')).toBeNull()
   })
 })

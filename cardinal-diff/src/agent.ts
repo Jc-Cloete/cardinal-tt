@@ -3,6 +3,7 @@ import path from 'node:path'
 import { constants, getInfo, watch } from 'fsevents'
 import { recordHeartbeat } from './db'
 import { diffLogger } from './observability'
+import { toPosixPath } from './path-utils'
 import { launchAgentPlistPath, logsDir, repoRoot } from './paths'
 import { mergePendingChanges } from './pending-buffer'
 import {
@@ -46,7 +47,6 @@ const addStats = (left: ScanStats, right: ScanStats): ScanStats => ({
 })
 
 const nowNs = (): number => Date.now() * 1_000_000
-const toPosixPath = (value: string): string => value.split(path.sep).join('/')
 
 const formatDateTimeNs = (value: number): string =>
   new Date(Math.floor(value / 1_000_000)).toISOString()

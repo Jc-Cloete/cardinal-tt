@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { toPosixPath } from './utils/path'
 
 type WorkspaceName =
   | 'client'
@@ -36,8 +37,6 @@ const allowedWorkspaceImports: Record<WorkspaceName, WorkspaceName[]> = {
 
 const sourceFileExtensions = new Set(['.ts', '.tsx'])
 const ignoredDirectories = new Set(['node_modules', '.git', 'dist', 'coverage', '.coverage'])
-
-const toPosixPath = (value: string): string => value.split(path.sep).join('/')
 
 const findWorkspaceForPath = (repoRoot: string, filePath: string): WorkspaceName | null => {
   const relative = toPosixPath(path.relative(repoRoot, filePath))

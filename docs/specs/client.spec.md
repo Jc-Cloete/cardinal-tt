@@ -148,6 +148,7 @@ Timeline must be vertical and support:
 - Jira state/actions are managed in `useJira`.
 - App settings state is managed in `useAppSettings`.
 - Notification state is managed in `ToastProvider`.
+- Date/time parsing and display helpers shared by multiple features must live in `src/utils/date.ts`.
 - Hooks must avoid stale closure behavior and follow exhaustive dependency rules.
 
 ## 7. Error Handling

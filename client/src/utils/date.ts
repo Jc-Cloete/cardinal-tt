@@ -33,6 +33,33 @@ export const getTodayParts = (): DateParts => {
   return { year, month, day }
 }
 
+export const getTodayDate = (): string => {
+  const { year, month, day } = getTodayParts()
+  return `${year}-${month}-${day}`
+}
+
+export const dateTimeToMs = (dateValue: string, timeValue: string): number | null => {
+  if (!dateValue || !timeValue) {
+    return null
+  }
+
+  const timestamp = Date.parse(`${dateValue}T${timeValue}:00`)
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
+export const dateTimeToIso = (dateValue: string, timeValue: string): string | null => {
+  const timestamp = dateTimeToMs(dateValue, timeValue)
+  return timestamp === null ? null : new Date(timestamp).toISOString()
+}
+
+export const dateTimeToNs = (dateValue: string, timeValue: string): number | null => {
+  const timestamp = dateTimeToMs(dateValue, timeValue)
+  return timestamp === null ? null : timestamp * 1_000_000
+}
+
+export const formatUnixNs = (value: number): string =>
+  value > 0 ? new Date(Math.floor(value / 1_000_000)).toLocaleString() : '--'
+
 export const getDayBounds = (year: string, month: string, day: string): DayBounds | null => {
   if (!year || !month || !day) {
     return null
