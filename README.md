@@ -61,6 +61,12 @@ Run strict type checks:
 bun run typecheck
 ```
 
+Run the repository-wide lint/format gate:
+
+```bash
+bun run lint
+```
+
 Run the full local quality gate:
 
 ```bash
@@ -108,6 +114,9 @@ Spec IDs are enforced by `scripts/spec-enforcement.ts`:
 - Requirements in `docs/specs/*.spec.md` use stable `SPEC-*` IDs.
 - Tests reference covered requirements with `@spec SPEC-*` comments.
 - `bun run specs:check` fails when a documented ID has no test reference, a test references an unknown ID, or a spec ID appears in more than one spec document.
+
+Root `bun run lint` is intentionally a single repository-wide Biome pass. Workspace `lint` scripts remain
+available for targeted package checks, but the root command avoids rechecking the same files multiple times.
 
 ## Runtime Data Paths
 

@@ -29,6 +29,15 @@ Local quality checks:
 bun run check
 ```
 
+Repository-wide lint/format check:
+
+```bash
+bun run lint
+```
+
+Root lint is a single Biome pass over the repository. Workspace `lint` scripts are retained for targeted
+package checks only, so the root command does not repeat the same Biome work per workspace.
+
 Coverage visibility and thresholds:
 
 ```bash
