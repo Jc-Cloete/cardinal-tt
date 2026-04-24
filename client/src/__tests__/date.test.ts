@@ -10,6 +10,7 @@ import {
 } from '../utils/date'
 
 describe('client date utils', () => {
+  // @spec SPEC-CLIENT-DATE
   it('sorts date-like values and normalizes numeric strings', () => {
     expect(toSorted(['10', '2', '1'])).toEqual(['1', '10', '2'])
     expect(normalizeNumericDatePart('02')).toBe('2')

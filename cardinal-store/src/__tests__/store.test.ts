@@ -26,6 +26,7 @@ const makeFileEntry = (relPath: string, size: number, hash: string | null = null
 })
 
 describe('cardinal-store createCardinalStore', () => {
+  // @spec SPEC-STORE-PROJECT-LIFECYCLE
   it('handles project lifecycle and duplicate root-path errors', () => {
     const { rootDir, dbPath } = makeTempDbPath()
 
@@ -62,6 +63,7 @@ describe('cardinal-store createCardinalStore', () => {
     }
   })
 
+  // @spec SPEC-STORE-COMMIT-HISTORY
   it('writes and queries commits, entries, and history', () => {
     const { rootDir, dbPath } = makeTempDbPath()
 
@@ -149,6 +151,7 @@ describe('cardinal-store createCardinalStore', () => {
     }
   })
 
+  // @spec SPEC-STORE-HEARTBEAT
   it('returns null for empty commit batches and reports heartbeat state', () => {
     const { rootDir, dbPath } = makeTempDbPath()
 
@@ -184,6 +187,7 @@ describe('cardinal-store createCardinalStore', () => {
     }
   })
 
+  // @spec SPEC-STORE-REPROCESS
   it('reprocesses a project by clearing project history and replacing index snapshot', () => {
     const { rootDir, dbPath } = makeTempDbPath()
 
@@ -251,6 +255,7 @@ describe('cardinal-store createCardinalStore', () => {
     }
   })
 
+  // @spec SPEC-STORE-JIRA-CACHE
   it('stores jira cache data with sync markers and supports issue upserts', () => {
     const { rootDir, dbPath } = makeTempDbPath()
 
@@ -328,6 +333,7 @@ describe('cardinal-store createCardinalStore', () => {
     }
   })
 
+  // @spec SPEC-STORE-ACTIVITY-CACHE
   it('stores activity window events, screenshot assets/frames, and heartbeat', () => {
     const { rootDir, dbPath } = makeTempDbPath()
 
@@ -401,6 +407,7 @@ describe('cardinal-store createCardinalStore', () => {
     }
   })
 
+  // @spec SPEC-STORE-INVALID-DB
   it('throws when opened against an invalid sqlite path', () => {
     const dirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'cardinal-store-invalid-'))
 

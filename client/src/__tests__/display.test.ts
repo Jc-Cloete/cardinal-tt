@@ -3,6 +3,7 @@ import { ALL_PROJECTS, UNKNOWN_PROJECT } from '../constants'
 import { getProjectDisplayName, toRoleLabel } from '../utils/display'
 
 describe('client display utils', () => {
+  // @spec SPEC-CLIENT-DISPLAY
   it('formats project labels for known, unknown, and all-project variants', () => {
     expect(getProjectDisplayName(ALL_PROJECTS)).toBe('All projects')
     expect(getProjectDisplayName(UNKNOWN_PROJECT)).toBe('Unknown project')

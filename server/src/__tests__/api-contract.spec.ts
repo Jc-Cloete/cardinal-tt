@@ -49,6 +49,9 @@ const getJson = async <T>(baseUrl: string, route: string): Promise<{ status: num
 }
 
 describe('server API contract', () => {
+  // @spec SPEC-SERVER-HTTP-CONTRACT
+  // @spec SPEC-SERVER-RUNTIME-VALIDATION
+  // @spec SPEC-SERVER-SAFE-PATHS
   let app: TestApp
 
   beforeAll(async () => {

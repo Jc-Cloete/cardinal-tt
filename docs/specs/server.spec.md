@@ -205,6 +205,16 @@ Minimum required server tests:
   - activity range query validation and screenshot file safety checks
   - HTTP contract tests for representative session, activity, Jira, and Cardinal route responses
 
+Mechanically enforced requirements:
+
+| ID | Requirement | Test mapping |
+| --- | --- | --- |
+| SPEC-SERVER-FILTERING | Session preview filtering excludes internal/developer/system records while preserving normal messages. | `server/src/__tests__/filters.test.ts` |
+| SPEC-SERVER-SEGMENTS | Session timestamps and inactivity gaps produce stable conversation segments and day-overlap selection. | `server/src/__tests__/session-parser.test.ts`, `server/src/__tests__/session-service.test.ts` |
+| SPEC-SERVER-SAFE-PATHS | Session file paths are resolved under `DATA_ROOT` and traversal attempts are blocked. | `server/src/__tests__/requests-fs.test.ts`, `server/src/__tests__/api-contract.spec.ts` |
+| SPEC-SERVER-RUNTIME-VALIDATION | Runtime query/body/param validation is centralized and invalid input returns structured 400 responses. | `server/src/__tests__/requests-fs.test.ts`, `server/src/__tests__/api-contract.spec.ts` |
+| SPEC-SERVER-HTTP-CONTRACT | Representative session, activity, Jira, and Cardinal routes return the documented status codes and payload shapes. | `server/src/__tests__/api-contract.spec.ts` |
+
 ## 13. Change Management
 
 When endpoint behavior changes, update all of:

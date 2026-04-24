@@ -79,6 +79,12 @@ Run workspace architecture boundary checks:
 bun run architecture:check
 ```
 
+Run spec-to-test enforcement:
+
+```bash
+bun run specs:check
+```
+
 Current coverage thresholds are enforced per workspace by `scripts/coverage.ts`:
 
 - `server`: 85% functions, 85% lines
@@ -96,6 +102,12 @@ Architecture boundaries are enforced by `scripts/architecture.ts`:
 - `cardinal-store` may import `cardinal-observability`.
 - `cardinal-observability` may not import local workspaces.
 - Relative imports may not cross from one workspace into another.
+
+Spec IDs are enforced by `scripts/spec-enforcement.ts`:
+
+- Requirements in `docs/specs/*.spec.md` use stable `SPEC-*` IDs.
+- Tests reference covered requirements with `@spec SPEC-*` comments.
+- `bun run specs:check` fails when a documented ID has no test reference, a test references an unknown ID, or a spec ID appears in more than one spec document.
 
 ## Runtime Data Paths
 

@@ -18,6 +18,8 @@ import {
 } from '../utils/validation'
 
 describe('server request/path utilities', () => {
+  // @spec SPEC-SERVER-RUNTIME-VALIDATION
+  // @spec SPEC-SERVER-SAFE-PATHS
   it('parses break-limit query values with fallback behavior', () => {
     expect(getConversationBreakLimitMinutes('25')).toBe(25)
     expect(getConversationBreakLimitMinutes(5)).toBe(5)

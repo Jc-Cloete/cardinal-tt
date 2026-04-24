@@ -107,7 +107,13 @@ Server endpoints depend on this data:
 
 Client activity page consumes these endpoints for scrubbing and playback.
 
-## 9. Non-goals
+## 9. Mechanical Enforcement
+
+| ID | Requirement | Test mapping |
+| --- | --- | --- |
+| SPEC-ACTIVITY-WINDOW-SAMPLE | Active-window sample parsing returns structured window metadata and degrades safely for invalid output. | `cardinal-activity/src/__tests__/window.test.ts` |
+
+## 10. Non-goals
 
 - No OCR/text extraction from screenshots
 - No cross-device sync

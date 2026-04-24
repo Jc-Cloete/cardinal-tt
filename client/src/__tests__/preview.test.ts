@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { parsePreviewMessages } from '../utils/preview'
 
 describe('client preview parser', () => {
+  // @spec SPEC-CLIENT-PREVIEW
   it('parses valid response-item messages and extracts text/image blocks', () => {
     const lines = [
       JSON.stringify({

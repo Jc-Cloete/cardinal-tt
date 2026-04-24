@@ -33,6 +33,7 @@ const createSessionFile = (filePath: string, cwd: string, timestamps: string[]):
 }
 
 describe('session-service day overlap selection', () => {
+  // @spec SPEC-SERVER-SEGMENTS
   it('includes a conversation on every day where at least one segment overlaps', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'session-overlap-'))
 

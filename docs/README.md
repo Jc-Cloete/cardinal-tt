@@ -43,6 +43,14 @@ bun run architecture:check
 
 The architecture gate is implemented in `scripts/architecture.ts`. It scans TypeScript imports and fails on undeclared local workspace dependencies or relative imports that cross workspace boundaries.
 
+Spec-to-test enforcement:
+
+```bash
+bun run specs:check
+```
+
+The spec gate is implemented in `scripts/spec-enforcement.ts`. Specs in `docs/specs/*.spec.md` declare stable `SPEC-*` IDs, and tests must reference covered requirements with `@spec SPEC-*` comments. The gate fails on missing test references, unknown test references, or duplicated spec IDs.
+
 Workspace docs to keep in sync with specs:
 
 - `README.md`

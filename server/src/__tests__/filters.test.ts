@@ -5,6 +5,7 @@ import type { JsonRecord } from '../types'
 const toRecord = (value: Record<string, unknown>): JsonRecord => value as JsonRecord
 
 describe('server filters', () => {
+  // @spec SPEC-SERVER-FILTERING
   it('extracts project cwd from session metadata', () => {
     const entry = toRecord({
       type: 'session_meta',

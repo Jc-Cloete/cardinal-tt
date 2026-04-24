@@ -19,6 +19,7 @@ const makeEntry = (relPath: string, values: Partial<IndexEntry> = {}): IndexEntr
 })
 
 describe('change-detector buildChangeset', () => {
+  // @spec SPEC-DIFF-CHANGESET
   it('detects add, modify, and delete changes', () => {
     const previous = new Map<string, IndexEntry>([
       ['a.ts', makeEntry('a.ts', { size: 10, inode: 11 })],

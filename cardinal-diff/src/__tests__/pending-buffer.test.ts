@@ -15,6 +15,7 @@ const makeEntry = (
 })
 
 describe('pending-buffer mergePendingChanges', () => {
+  // @spec SPEC-DIFF-PENDING-BUFFER
   it('keeps ADD entries while folding later MODIFY updates', () => {
     const pending = new Map<string, ChangedEntry>()
     const merged = mergePendingChanges(pending, [

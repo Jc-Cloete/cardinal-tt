@@ -11,6 +11,7 @@ import {
 } from '../ignore'
 
 describe('ignore rules', () => {
+  // @spec SPEC-DIFF-IGNORE
   it('returns defaults when project ignore file is missing', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cardinal-ignore-'))
 

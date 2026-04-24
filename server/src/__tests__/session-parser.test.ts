@@ -7,6 +7,7 @@ import {
 import type { ProcessedSession } from '../types'
 
 describe('session-parser', () => {
+  // @spec SPEC-SERVER-SEGMENTS
   it('parses timestamps, project cwd, and filtered content', () => {
     const content = [
       '{"timestamp":"2026-02-20T10:00:00.000Z","type":"session_meta","payload":{"cwd":"/Users/me/app"}}',

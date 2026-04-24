@@ -25,7 +25,8 @@
     "test": "concurrently -n server,api,client,diff,store,activity,scripts -c blue,red,green,magenta,yellow,cyan,white \"cd server && bun run test\" \"cd server && bun run test:api\" \"cd client && bun run test\" \"cd cardinal-diff && bun run test\" \"cd cardinal-store && bun run test\" \"cd cardinal-activity && bun run test\" \"bun test scripts\"",
     "test:coverage": "bun run scripts/coverage.ts",
     "architecture:check": "bun run scripts/architecture.ts",
-    "check": "bun run biome:check && bun run typecheck && bun run test && bun run test:coverage && bun run architecture:check"
+    "specs:check": "bun run scripts/spec-enforcement.ts",
+    "check": "bun run biome:check && bun run typecheck && bun run test && bun run test:coverage && bun run architecture:check && bun run specs:check"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",

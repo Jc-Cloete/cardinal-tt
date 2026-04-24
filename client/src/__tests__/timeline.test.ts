@@ -20,6 +20,7 @@ const makeSession = (
 })
 
 describe('client timeline builder', () => {
+  // @spec SPEC-CLIENT-TIMELINE
   it('returns an empty model when there are no sessions', () => {
     const model = buildCompressedTimeline([], '2026', '02', '20', 10)
     expect(model.hasData).toBe(false)

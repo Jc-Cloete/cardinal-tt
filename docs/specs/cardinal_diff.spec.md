@@ -191,6 +191,15 @@ Compare new scan results to index:
 * Commit time is ended_at_ns; started_at_ns is first change in batch.
 * Write commit + update index atomically.
 
+#### 9.6 Mechanical Enforcement
+
+| ID | Requirement | Test mapping |
+| --- | --- | --- |
+| SPEC-DIFF-IGNORE | Default, custom, and native `.gitignore` rules are loaded and evaluated consistently. | `cardinal-diff/src/__tests__/ignore.test.ts` |
+| SPEC-DIFF-SCANNER | Project scans respect ignore rules, nested gitignore files, missing subtrees, and targeted index replacement. | `cardinal-diff/src/__tests__/scanner.test.ts` |
+| SPEC-DIFF-CHANGESET | Change detection reports add/modify/delete/rename and hash-confirmed metadata churn correctly. | `cardinal-diff/src/__tests__/change-detector.test.ts` |
+| SPEC-DIFF-PENDING-BUFFER | Pending change batches fold repeated operations and renames into stable commit entries. | `cardinal-diff/src/__tests__/pending-buffer.test.ts` |
+
 ### 10. Persistence Layer
 
 #### 10.1 Directory Layout

@@ -184,6 +184,15 @@ Minimum required client tests:
   - default Jira status/assignee filters applying after project-specific issues load
   - stale Jira issue response suppression on rapid project switches
 
+Mechanically enforced requirements:
+
+| ID | Requirement | Test mapping |
+| --- | --- | --- |
+| SPEC-CLIENT-DATE | Date and time utilities sort, normalize, bound, and format user-facing date/time values. | `client/src/__tests__/date.test.ts` |
+| SPEC-CLIENT-PREVIEW | Preview parsing accepts valid response-item messages and ignores invalid/non-message records. | `client/src/__tests__/preview.test.ts` |
+| SPEC-CLIENT-TIMELINE | Timeline model generation handles empty data, idle-gap sections, overlap lanes, and cross-day ranges. | `client/src/__tests__/timeline.test.ts` |
+| SPEC-CLIENT-DISPLAY | Display helpers provide stable fallback labels for project and role values. | `client/src/__tests__/display.test.ts` |
+
 ## 10. Change Management
 
 When UI contracts change, update:

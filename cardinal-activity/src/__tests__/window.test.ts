@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { parseWindowSampleOutput } from '../window'
 
 describe('window sample parsing', () => {
+  // @spec SPEC-ACTIVITY-WINDOW-SAMPLE
   it('parses active window sample output', () => {
     const parsed = parseWindowSampleOutput(
       'Firefox\t1234\torg.mozilla.firefox\tProject board',

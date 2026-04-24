@@ -136,6 +136,18 @@ Minimum required coverage in this package:
   - jira cache replace/upsert behavior and sync marker updates
   - jira status/assignee option queries return expected distinct values from cached issues
 
+Mechanically enforced requirements:
+
+| ID | Requirement | Test mapping |
+| --- | --- | --- |
+| SPEC-STORE-PROJECT-LIFECYCLE | Project lifecycle operations enforce root-path uniqueness and default ignore behavior. | `cardinal-store/src/__tests__/store.test.ts` |
+| SPEC-STORE-COMMIT-HISTORY | Commit writes, sequence derivation, entry reads, and file history queries remain consistent. | `cardinal-store/src/__tests__/store.test.ts` |
+| SPEC-STORE-HEARTBEAT | Empty commit batches and heartbeat read/write behavior are stable. | `cardinal-store/src/__tests__/store.test.ts` |
+| SPEC-STORE-REPROCESS | Reprocessing clears prior project history and writes replacement index/cursor state atomically. | `cardinal-store/src/__tests__/store.test.ts` |
+| SPEC-STORE-JIRA-CACHE | Jira cache replacement/upsert/sync-marker behavior and filter option queries are stable. | `cardinal-store/src/__tests__/store.test.ts` |
+| SPEC-STORE-ACTIVITY-CACHE | Activity window events, screenshot assets/frames, and heartbeat storage are stable. | `cardinal-store/src/__tests__/store.test.ts` |
+| SPEC-STORE-INVALID-DB | Invalid sqlite paths fail explicitly. | `cardinal-store/src/__tests__/store.test.ts` |
+
 ## 11. Change Management
 
 Any schema or type contract change MUST include:

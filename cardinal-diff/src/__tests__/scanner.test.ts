@@ -23,6 +23,7 @@ const makeFileEntry = (relPath: string, size: number): IndexEntry => ({
 })
 
 describe('scanner', () => {
+  // @spec SPEC-DIFF-SCANNER
   it('scans project trees while respecting ignore rules', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cardinal-scan-'))
 
