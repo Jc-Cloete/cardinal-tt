@@ -1,16 +1,17 @@
 import 'dotenv/config'
 import { createApp } from './src/app'
-import { port } from './src/config'
+import { host, port } from './src/config'
 import { serverLogger } from './src/observability/logger'
 
 const app = createApp()
 
-app.listen(port, () => {
+app.listen(port, host, () => {
   serverLogger.log({
     event: 'server.start',
     fields: {
+      host,
       port,
-      url: `http://localhost:${port}`,
+      url: `http://${host}:${port}`,
     },
   })
 })

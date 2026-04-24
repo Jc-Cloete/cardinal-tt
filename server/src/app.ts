@@ -2,12 +2,14 @@ import cors from 'cors'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import { serverLogger } from './observability/logger'
 import { apiRouter } from './routes/api'
+import { enforceLocalOrigin, localCorsOptions } from './security'
 
 // Express app composition stays minimal; domain behavior lives under routes/services.
 export const createApp = () => {
   const app = express()
 
-  app.use(cors())
+  app.use(enforceLocalOrigin)
+  app.use(cors(localCorsOptions))
   app.use(express.json())
 
   app.use('/api', apiRouter)

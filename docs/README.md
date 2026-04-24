@@ -14,6 +14,8 @@ Project specifications and design artifacts.
   - Production-target spec for CardinalDiff watcher/storage/CLI behavior.
 - `docs/specs/cardinal_activity.spec.md`
   - Source-of-truth spec for window/screenshot activity tracking service behavior.
+- `docs/security.md`
+  - Security posture for local-only server exposure, file/path boundaries, and mechanical enforcement.
 
 ## Usage
 

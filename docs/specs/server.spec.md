@@ -28,6 +28,7 @@ evolve independently.
 Environment:
 
 - `PORT` (default `4000`)
+- `HOST` (default `127.0.0.1`; local desktop use should bind to loopback)
 - `DATA_ROOT` (default `~/.codex/sessions` when present)
 - `CACHE_DB_PATH` (defaults to `~/.cardinal-diff/index/cardinaldiff.sqlite`, with legacy fallback)
 - `CONVERSATION_BREAK_LIMIT` (default `10`)
@@ -175,7 +176,8 @@ Validation rules:
 
 - `resolveSafePath` MUST block traversal outside `DATA_ROOT`.
 - No raw SQL in server package (all DB interaction via typed cache adapters).
-- CORS and JSON parsing middleware enabled for local app consumption.
+- CORS MUST allow only loopback browser origins (`localhost`, `127.0.0.1`, `::1`) and reject non-local
+  browser origins before route handling.
 - Activity screenshot serving MUST validate the resolved file path is inside `CARDINAL_ACTIVITY_DATA_DIR`.
 
 ## 11. Performance Expectations
@@ -214,6 +216,7 @@ Mechanically enforced requirements:
 | SPEC-SERVER-SAFE-PATHS | Session file paths are resolved under `DATA_ROOT` and traversal attempts are blocked. | `server/src/__tests__/requests-fs.test.ts`, `server/src/__tests__/api-contract.spec.ts` |
 | SPEC-SERVER-RUNTIME-VALIDATION | Runtime query/body/param validation is centralized and invalid input returns structured 400 responses. | `server/src/__tests__/requests-fs.test.ts`, `server/src/__tests__/api-contract.spec.ts` |
 | SPEC-SERVER-HTTP-CONTRACT | Representative session, activity, Jira, and Cardinal routes return the documented status codes and payload shapes. | `server/src/__tests__/api-contract.spec.ts` |
+| SPEC-SERVER-LOCAL-SECURITY | Browser-origin access is local-only and non-local origins are rejected before route handling. | `server/src/__tests__/security.test.ts`, `server/src/__tests__/api-contract.spec.ts` |
 
 ## 13. Change Management
 

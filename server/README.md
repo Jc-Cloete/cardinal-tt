@@ -19,6 +19,7 @@ bun run test
 ## Environment
 
 - `PORT` (default `4000`)
+- `HOST` (default `127.0.0.1`)
 - `DATA_ROOT` (default `~/.codex/sessions` when present)
 - `CACHE_DB_PATH` (sqlite path used by shared cardinal store + session cache)
 - `CARDINAL_ACTIVITY_DATA_DIR` (root used to validate/serve stored activity screenshots)
@@ -31,12 +32,24 @@ bun run test
 - `JIRA_PROJECTS_CACHE_TTL_MS` (default `300000`)
 - `JIRA_ISSUES_CACHE_TTL_MS` (default `60000`)
 
+## Security Boundary
+
+The server is local-first desktop tooling:
+
+- it binds to `127.0.0.1` by default
+- browser origins must be loopback origins (`localhost`, `127.0.0.1`, or `::1`)
+- remote browser origins receive `403`
+- requests without an `Origin` header remain allowed for local CLI tooling and tests
+
+See `docs/security.md` for the full posture.
+
 ## Source Layout
 
 - `src/app.ts`: app/middleware bootstrapping.
 - `src/routes/api.ts`: API router composition.
 - `src/routes/*-routes.ts`: route-family modules for session, activity, Jira, and CardinalDiff HTTP behavior.
 - `src/routes/route-utils.ts`: shared route instrumentation helpers.
+- `src/security.ts`: local-only browser-origin and CORS policy.
 - `src/services/session-service.ts`: session listing + preview retrieval with cache-aware parsing.
 - `src/domain/session-parser.ts`: JSONL parsing, filtering, timestamp extraction, segment construction.
 - `src/cache/session-cache.ts`: sqlite cache for processed session files.
@@ -56,6 +69,7 @@ It starts the real Express app on an ephemeral loopback port with isolated temp 
 - activity range validation and screenshot root containment
 - unconfigured Jira integration errors
 - Cardinal project mutation validation
+- local-only browser-origin rejection
 
 ## API Groups
 

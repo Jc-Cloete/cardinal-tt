@@ -120,11 +120,18 @@ Spec IDs are enforced by `scripts/spec-enforcement.ts`:
 Common variables:
 
 - `PORT` (server port, default `4000`)
+- `HOST` (server bind host, default `127.0.0.1`)
 - `DATA_ROOT` (session source root)
 - `CACHE_DB_PATH` (sqlite path for cache/cardinal data)
 - `CONVERSATION_BREAK_LIMIT` (minutes, default `10`)
 - `JIRA_BASE_URL`, plus auth (`JIRA_AUTH_TOKEN` or `JIRA_EMAIL` + `JIRA_API_TOKEN`)
 - `JIRA_PROJECTS_CACHE_TTL_MS`, `JIRA_ISSUES_CACHE_TTL_MS`
+
+Security posture:
+
+- The server is local-first and binds to loopback by default.
+- Browser origins are limited to `localhost`, `127.0.0.1`, and `::1`; remote origins receive `403`.
+- The detailed posture is documented in `docs/security.md`.
 
 ## Current Feature Set
 

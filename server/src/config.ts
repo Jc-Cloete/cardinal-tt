@@ -7,6 +7,7 @@ export const UNKNOWN_PROJECT = '_unknown'
 export const DEFAULT_CONVERSATION_BREAK_LIMIT = 10
 
 export const port = Number(process.env.PORT || 4000)
+export const host = String(process.env.HOST || '127.0.0.1').trim() || '127.0.0.1'
 
 const cwd = process.cwd()
 

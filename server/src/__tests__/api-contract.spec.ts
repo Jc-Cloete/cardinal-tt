@@ -167,4 +167,17 @@ describe('server API contract', () => {
     expect(cardinal.status).toBe(400)
     expect(cardinalBody.error).toContain('Project path must be inside')
   })
+
+  // @spec SPEC-SERVER-LOCAL-SECURITY
+  it('rejects non-local browser origins before route handling', async () => {
+    const response = await fetch(`${app.baseUrl}/root`, {
+      headers: {
+        Origin: 'https://example.com',
+      },
+    })
+    const body = (await response.json()) as { error: string }
+
+    expect(response.status).toBe(403)
+    expect(body.error).toBe('Only local browser origins are allowed')
+  })
 })
