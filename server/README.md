@@ -13,6 +13,7 @@ Express API workspace for:
 bun run dev
 bun run start
 bun run typecheck
+bun run test
 ```
 
 ## Environment
@@ -42,6 +43,17 @@ bun run typecheck
 - `src/integrations/jira-client.ts`: typed Jira REST client.
 - `src/utils/*`: path safety, hashing, JSON guards, query parsing.
 - `src/types.ts`: strict shared server-side DTOs.
+
+## Contract Tests
+
+HTTP contract coverage lives in `server/src/__tests__/api-contract.spec.ts`.
+It starts the real Express app on an ephemeral loopback port with isolated temp data/cache roots and verifies representative status codes and response bodies for:
+
+- session root/date hierarchy endpoints
+- session file traversal and missing-file errors
+- activity range validation and screenshot root containment
+- unconfigured Jira integration errors
+- Cardinal project mutation validation
 
 ## API Groups
 

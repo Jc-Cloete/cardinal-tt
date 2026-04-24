@@ -11,11 +11,22 @@ type CoverageThreshold = CoverageSummary
 type WorkspaceCoverageConfig = {
   name: string
   directory: string
+  patterns?: string[]
   threshold: CoverageThreshold
 }
 
 const workspaces: WorkspaceCoverageConfig[] = [
-  { name: 'server', directory: 'server', threshold: { functions: 85, lines: 85 } },
+  {
+    name: 'server',
+    directory: 'server',
+    patterns: [
+      './src/__tests__/filters.test.ts',
+      './src/__tests__/requests-fs.test.ts',
+      './src/__tests__/session-parser.test.ts',
+      './src/__tests__/session-service.test.ts',
+    ],
+    threshold: { functions: 85, lines: 85 },
+  },
   { name: 'client', directory: 'client', threshold: { functions: 90, lines: 90 } },
   { name: 'cardinal-diff', directory: 'cardinal-diff', threshold: { functions: 70, lines: 70 } },
   { name: 'cardinal-store', directory: 'cardinal-store', threshold: { functions: 90, lines: 90 } },
@@ -79,6 +90,7 @@ const runWorkspaceCoverage = (
     'bun',
     [
       'test',
+      ...(config.patterns || []),
       '--coverage',
       '--coverage-reporter=text',
       '--coverage-dir',

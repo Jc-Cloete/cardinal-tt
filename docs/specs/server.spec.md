@@ -161,6 +161,7 @@ Validation rules:
 ## 9. Error Handling
 
 - Route-level guards return explicit `400`/`404` responses.
+- Errors thrown by async route handlers MUST be forwarded to global error middleware instead of being rethrown outside Express.
 - Global express error middleware returns structured `{ error: string }`.
 - File parsing failures in session enumeration are isolated per file (best-effort list).
 
@@ -189,12 +190,14 @@ Minimum required server tests:
 - Error path:
   - traversal blocking
   - invalid query fallback behavior
+  - async route errors forwarded through global error middleware with the intended status code
 - Edge cases:
   - empty timestamps
   - invalid json lines
   - missing directory reads
   - Jira cache freshness/fallback behavior
   - activity range query validation and screenshot file safety checks
+  - HTTP contract tests for representative session, activity, Jira, and Cardinal route responses
 
 ## 13. Change Management
 

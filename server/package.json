@@ -9,7 +9,8 @@
     "typecheck": "bunx tsc --noEmit",
     "lint": "cd .. && biome check server --error-on-warnings",
     "lint:fix": "cd .. && biome check server --write --unsafe --error-on-warnings",
-    "test": "bun test"
+    "test": "bun test src/__tests__/*.test.ts",
+    "test:api": "bun test src/__tests__/api-contract.spec.ts"
   },
   "dependencies": {
     "cardinal-observability": "workspace:*",

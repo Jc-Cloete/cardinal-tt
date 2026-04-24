@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type { WideEventObject } from 'cardinal-observability'
 import { DEFAULT_IGNORE_PATTERNS, type HashPolicy, type ProjectMode } from 'cardinal-store'
-import { type Request, type Response, Router } from 'express'
+import { type NextFunction, type Request, type Response, Router } from 'express'
 import {
   getActivityHeartbeatStatus,
   getActivityScreenshotPath,
@@ -41,11 +41,11 @@ import { getConversationBreakLimitMinutes, isForceRefresh } from '../utils/reque
 
 export const apiRouter = Router()
 
-type RouteHandler = (req: Request, res: Response) => void | Promise<void>
+type RouteHandler = (req: Request, res: Response, next?: NextFunction) => void | Promise<void>
 
 const instrumentRoute =
   (event: string, handler: RouteHandler): RouteHandler =>
-  async (req, res) => {
+  async (req, res, next?: NextFunction) => {
     const startedAt = Date.now()
     const baseFields = getRequestFields(req)
     const urlParts = req.originalUrl.split('?')
@@ -64,19 +64,22 @@ const instrumentRoute =
         },
       })
     } catch (error) {
+      const status = error instanceof Error && 'status' in error ? Number(error.status) : 500
       serverLogger.log({
         event,
-        level: 'error',
+        level: status >= 500 ? 'error' : 'warn',
         outcome: 'error',
         error: error instanceof Error ? error : String(error),
         fields: {
           ...baseFields,
-          status_code: 500,
+          status_code: Number.isFinite(status) ? status : 500,
           duration_ms: Date.now() - startedAt,
           query_string: urlParts[1] || '',
         },
       })
-      throw error
+      if (next) {
+        next(error)
+      }
     }
   }
 
