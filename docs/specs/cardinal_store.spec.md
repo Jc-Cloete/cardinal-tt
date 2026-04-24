@@ -71,6 +71,7 @@ Indexes:
 Schema upgrades:
 
 - Additive migrations are handled in-process via `addColumnIfMissing(...)`.
+- Data repair migrations are allowed when a newer derived column can be backfilled from existing canonical rows.
 - Backward compatibility for legacy columns (`content_hash_*`) is retained in commit entry reads.
 
 ## 5. Behavioral Requirements
@@ -147,6 +148,7 @@ Mechanically enforced requirements:
 | SPEC-STORE-JIRA-CACHE | Jira cache replacement/upsert/sync-marker behavior and filter option queries are stable. | `cardinal-store/src/__tests__/store.test.ts` |
 | SPEC-STORE-ACTIVITY-CACHE | Activity window events, screenshot assets/frames, and heartbeat storage are stable. | `cardinal-store/src/__tests__/store.test.ts` |
 | SPEC-STORE-INVALID-DB | Invalid sqlite paths fail explicitly. | `cardinal-store/src/__tests__/store.test.ts` |
+| SPEC-STORE-MIGRATION-REPAIR | Legacy schemas are repaired when derived commit-entry fields can be reconstructed from canonical commit rows. | `cardinal-store/src/__tests__/store.test.ts` |
 
 ## 11. Change Management
 

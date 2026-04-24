@@ -38,6 +38,7 @@ bun run typecheck
 
 - table creation
 - additive schema migration helpers
+- data repair migrations for reconstructable derived fields
 - typed row parsing
 - project/index/commit/metric CRUD/query operations
 - project reprocess transaction (clear project commit/index history and replace with fresh index + cursor)

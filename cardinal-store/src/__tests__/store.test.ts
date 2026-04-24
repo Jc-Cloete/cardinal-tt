@@ -1,3 +1,4 @@
+import { Database } from 'bun:sqlite'
 import { describe, expect, it } from 'bun:test'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -24,6 +25,130 @@ const makeFileEntry = (relPath: string, size: number, hash: string | null = null
   hash,
   symlinkTarget: null,
 })
+
+const seedLegacyCommitEntrySchema = (dbPath: string): void => {
+  const db = new Database(dbPath)
+  try {
+    db.exec(`
+      CREATE TABLE cardinal_projects (
+        project_id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        root_path TEXT NOT NULL UNIQUE,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        ignore_rules_json TEXT NOT NULL,
+        mode TEXT NOT NULL DEFAULT 'metadata',
+        hash_policy TEXT NOT NULL DEFAULT 'off',
+        max_blob_size_bytes INTEGER NOT NULL DEFAULT 5242880,
+        debounce_ms INTEGER NOT NULL DEFAULT 500,
+        commit_idle_ms INTEGER NOT NULL DEFAULT 2000,
+        commit_max_interval_ms INTEGER NOT NULL DEFAULT 60000,
+        last_event_cursor TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE cardinal_commits (
+        commit_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        parent_commit_id TEXT,
+        sequence_no INTEGER NOT NULL,
+        started_at_ns INTEGER NOT NULL,
+        ended_at_ns INTEGER NOT NULL,
+        event_cursor_start TEXT,
+        event_cursor_end TEXT,
+        change_count INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE cardinal_commit_entries (
+        entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        commit_id TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        rel_path TEXT NOT NULL,
+        op TEXT NOT NULL,
+        old_rel_path TEXT,
+        before_json TEXT,
+        after_json TEXT
+      );
+
+      INSERT INTO cardinal_projects (
+        project_id,
+        name,
+        root_path,
+        enabled,
+        ignore_rules_json,
+        mode,
+        hash_policy,
+        max_blob_size_bytes,
+        debounce_ms,
+        commit_idle_ms,
+        commit_max_interval_ms,
+        last_event_cursor,
+        created_at,
+        updated_at
+      ) VALUES (
+        'legacy-project',
+        'legacy',
+        '/tmp/legacy',
+        1,
+        '[".git/**"]',
+        'metadata',
+        'off',
+        5242880,
+        500,
+        2000,
+        60000,
+        NULL,
+        '2026-02-21T10:00:00.000Z',
+        '2026-02-21T10:00:00.000Z'
+      );
+
+      INSERT INTO cardinal_commits (
+        commit_id,
+        project_id,
+        parent_commit_id,
+        sequence_no,
+        started_at_ns,
+        ended_at_ns,
+        event_cursor_start,
+        event_cursor_end,
+        change_count,
+        created_at
+      ) VALUES (
+        'legacy-commit',
+        'legacy-project',
+        NULL,
+        1,
+        100,
+        200,
+        NULL,
+        NULL,
+        1,
+        '2026-02-21T10:00:00.000Z'
+      );
+
+      INSERT INTO cardinal_commit_entries (
+        commit_id,
+        project_id,
+        rel_path,
+        op,
+        old_rel_path,
+        before_json,
+        after_json
+      ) VALUES (
+        'legacy-commit',
+        'legacy-project',
+        'src/legacy.ts',
+        'ADD',
+        NULL,
+        NULL,
+        '{"kind":"file","size":10}'
+      );
+    `)
+  } finally {
+    db.close()
+  }
+}
 
 describe('cardinal-store createCardinalStore', () => {
   // @spec SPEC-STORE-PROJECT-LIFECYCLE
@@ -415,6 +540,32 @@ describe('cardinal-store createCardinalStore', () => {
       expect(() => createCardinalStore(dirPath)).toThrow()
     } finally {
       cleanup(dirPath)
+    }
+  })
+
+  // @spec SPEC-STORE-MIGRATION-REPAIR
+  it('backfills derived commit entry timestamps for legacy schemas', () => {
+    const { rootDir, dbPath } = makeTempDbPath()
+
+    try {
+      seedLegacyCommitEntrySchema(dbPath)
+      const store = createCardinalStore(dbPath)
+
+      expect(store.getCommitEntries('legacy-commit')[0]?.relPath).toBe('src/legacy.ts')
+
+      const db = new Database(dbPath, { readonly: true })
+      try {
+        const row = db
+          .query(
+            `SELECT ended_at_ns FROM cardinal_commit_entries WHERE commit_id = 'legacy-commit'`,
+          )
+          .get() as { ended_at_ns: number } | null
+        expect(row?.ended_at_ns).toBe(200)
+      } finally {
+        db.close()
+      }
+    } finally {
+      cleanup(rootDir)
     }
   })
 })

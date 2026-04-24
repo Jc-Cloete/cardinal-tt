@@ -512,6 +512,22 @@ export const createCardinalStore = (dbPath: string): CardinalStore => {
   addColumnIfMissing('cardinal_projects', 'hash_policy', "hash_policy TEXT NOT NULL DEFAULT 'off'")
 
   db.exec(`
+    UPDATE cardinal_commit_entries
+    SET ended_at_ns = (
+      SELECT cardinal_commits.ended_at_ns
+      FROM cardinal_commits
+      WHERE cardinal_commits.commit_id = cardinal_commit_entries.commit_id
+      LIMIT 1
+    )
+    WHERE ended_at_ns = 0
+      AND EXISTS (
+        SELECT 1
+        FROM cardinal_commits
+        WHERE cardinal_commits.commit_id = cardinal_commit_entries.commit_id
+      );
+  `)
+
+  db.exec(`
     DROP INDEX IF EXISTS idx_cardinal_entries_project_path_time;
     CREATE INDEX IF NOT EXISTS idx_cardinal_entries_project_path_time
     ON cardinal_commit_entries(project_id, rel_path, ended_at_ns);
