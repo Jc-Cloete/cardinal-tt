@@ -17,7 +17,15 @@ import {
   listCardinalProjects,
   removeCardinalProject,
 } from '../cache/cardinal-diff'
-import { instrumentRoute, parseLimit } from './route-utils'
+import {
+  failValidation,
+  readBoundedInteger,
+  readOptionalInteger,
+  readOptionalString,
+  readRequiredInteger,
+  readRequiredString,
+} from '../utils/validation'
+import { instrumentRoute } from './route-utils'
 
 export const cardinalRouter = Router()
 
@@ -47,12 +55,7 @@ cardinalRouter.get(
 cardinalRouter.get(
   '/cardinal/project-by-root',
   instrumentRoute('server.api.cardinal.project_by_root.get', (req: Request, res: Response) => {
-    const rootPath = String(req.query.root_path ?? '').trim()
-    if (!rootPath) {
-      res.status(400).json({ error: 'root_path is required' })
-      return
-    }
-
+    const rootPath = readRequiredString(req.query, 'root_path', 'root_path is required')
     const project = getCardinalProjectByRootPath(path.resolve(rootPath))
     res.json({ project })
   }),
@@ -61,30 +64,28 @@ cardinalRouter.get(
 cardinalRouter.post(
   '/cardinal/projects',
   instrumentRoute('server.api.cardinal.projects.create', (req: Request, res: Response) => {
-    const rootPathRaw = String(req.body?.rootPath ?? req.body?.root_path ?? '').trim()
-    if (!rootPathRaw) {
-      res.status(400).json({ error: 'rootPath is required' })
-      return
-    }
+    const rootPathRaw = readRequiredString(
+      req.body,
+      ['rootPath', 'root_path'],
+      'rootPath is required',
+    )
 
     const rootPath = path.resolve(rootPathRaw)
     const home = path.resolve(os.homedir())
     const isInsideHome = rootPath === home || rootPath.startsWith(`${home}${path.sep}`)
     if (!isInsideHome) {
-      res.status(400).json({ error: `Project path must be inside ${home}` })
-      return
+      failValidation(`Project path must be inside ${home}`)
     }
 
     if (!fs.existsSync(rootPath) || !fs.lstatSync(rootPath).isDirectory()) {
-      res.status(400).json({ error: 'Project path must exist and be a directory' })
-      return
+      failValidation('Project path must exist and be a directory')
     }
 
-    const modeRaw = String(req.body?.mode ?? 'metadata')
-    const hashPolicyRaw = String(req.body?.hashPolicy ?? req.body?.hash_policy ?? 'off')
+    const modeRaw = readOptionalString(req.body, 'mode', 'metadata')
+    const hashPolicyRaw = readOptionalString(req.body, ['hashPolicy', 'hash_policy'], 'off')
     const mode: ProjectMode = modeRaw === 'content' ? 'content' : 'metadata'
     const hashPolicy: HashPolicy = hashPolicyRaw === 'on_change' ? 'on_change' : 'off'
-    const name = String(req.body?.name ?? path.basename(rootPath)).trim() || path.basename(rootPath)
+    const name = readOptionalString(req.body, 'name', path.basename(rootPath))
 
     const existing = getCardinalProjectByRootPath(rootPath)
     if (existing) {
@@ -107,12 +108,7 @@ cardinalRouter.post(
 cardinalRouter.delete(
   '/cardinal/projects/:projectId',
   instrumentRoute('server.api.cardinal.projects.delete', (req: Request, res: Response) => {
-    const projectId = String(req.params.projectId ?? '').trim()
-    if (!projectId) {
-      res.status(400).json({ error: 'projectId is required' })
-      return
-    }
-
+    const projectId = readRequiredString(req.params, 'projectId', 'projectId is required')
     removeCardinalProject(projectId)
     res.json({ ok: true, projectId })
   }),
@@ -121,12 +117,10 @@ cardinalRouter.delete(
 cardinalRouter.get(
   '/cardinal/commits',
   instrumentRoute('server.api.cardinal.commits.list', (req: Request, res: Response) => {
-    const projectId = String(req.query.project_id ?? '')
-    const rawSince = String(req.query.since_ns ?? '')
-    const rawUntil = String(req.query.until_ns ?? '')
-    const limit = parseLimit(req.query.limit, 100, 1000)
-    const sinceNs = rawSince ? Number.parseInt(rawSince, 10) : undefined
-    const untilNs = rawUntil ? Number.parseInt(rawUntil, 10) : undefined
+    const projectId = readOptionalString(req.query, 'project_id')
+    const limit = readBoundedInteger(req.query.limit, 100, 1, 1000)
+    const sinceNs = readOptionalInteger(req.query, 'since_ns')
+    const untilNs = readOptionalInteger(req.query, 'until_ns')
 
     res.json({
       commits: listCardinalCommits({
@@ -142,7 +136,7 @@ cardinalRouter.get(
 cardinalRouter.get(
   '/cardinal/commit/:commitId',
   instrumentRoute('server.api.cardinal.commit.get', (req: Request, res: Response) => {
-    const commitId = String(req.params.commitId ?? '')
+    const commitId = readOptionalString(req.params, 'commitId')
     const commit = getCardinalCommit(commitId)
     if (!commit) {
       res.status(404).json({ error: 'Commit not found' })
@@ -159,15 +153,23 @@ cardinalRouter.get(
 cardinalRouter.get(
   '/cardinal/file-history',
   instrumentRoute('server.api.cardinal.file_history.list', (req: Request, res: Response) => {
-    const projectId = String(req.query.project_id ?? '')
-    const relPath = String(req.query.rel_path ?? '')
-    if (!projectId || !relPath) {
-      res.status(400).json({ error: 'project_id and rel_path are required' })
-      return
-    }
+    const projectId = readRequiredString(
+      req.query,
+      'project_id',
+      'project_id and rel_path are required',
+    )
+    const relPath = readRequiredString(
+      req.query,
+      'rel_path',
+      'project_id and rel_path are required',
+    )
 
     res.json({
-      history: getCardinalFileHistory(projectId, relPath, parseLimit(req.query.limit, 200, 1000)),
+      history: getCardinalFileHistory(
+        projectId,
+        relPath,
+        readBoundedInteger(req.query.limit, 200, 1, 1000),
+      ),
     })
   }),
 )
@@ -175,15 +177,22 @@ cardinalRouter.get(
 cardinalRouter.get(
   '/cardinal/diff',
   instrumentRoute('server.api.cardinal.diff.get', (req: Request, res: Response) => {
-    const projectId = String(req.query.project_id ?? '')
-    const fromCommitId = String(req.query.from_commit_id ?? '')
-    const toCommitId = String(req.query.to_commit_id ?? '')
-    const relPath = String(req.query.rel_path ?? '')
-
-    if (!projectId || !fromCommitId || !toCommitId) {
-      res.status(400).json({ error: 'project_id, from_commit_id and to_commit_id are required' })
-      return
-    }
+    const projectId = readRequiredString(
+      req.query,
+      'project_id',
+      'project_id, from_commit_id and to_commit_id are required',
+    )
+    const fromCommitId = readRequiredString(
+      req.query,
+      'from_commit_id',
+      'project_id, from_commit_id and to_commit_id are required',
+    )
+    const toCommitId = readRequiredString(
+      req.query,
+      'to_commit_id',
+      'project_id, from_commit_id and to_commit_id are required',
+    )
+    const relPath = readOptionalString(req.query, 'rel_path')
 
     const project = getCardinalProject(projectId)
     if (!project) {
@@ -199,8 +208,7 @@ cardinalRouter.get(
     }
 
     if (fromCommit.projectId !== projectId || toCommit.projectId !== projectId) {
-      res.status(400).json({ error: 'Commits must belong to requested project' })
-      return
+      failValidation('Commits must belong to requested project')
     }
 
     const entries = getCardinalDiffEntries({
@@ -223,18 +231,9 @@ cardinalRouter.get(
 cardinalRouter.get(
   '/cardinal/events',
   instrumentRoute('server.api.cardinal.events.list', (req: Request, res: Response) => {
-    const projectId = String(req.query.project_id ?? '').trim()
-    if (!projectId) {
-      res.status(400).json({ error: 'project_id is required' })
-      return
-    }
-
-    const sinceNs = Number.parseInt(String(req.query.since_ns ?? ''), 10)
-    const untilNs = Number.parseInt(String(req.query.until_ns ?? ''), 10)
-    if (!Number.isFinite(sinceNs) || !Number.isFinite(untilNs)) {
-      res.status(400).json({ error: 'since_ns and until_ns are required' })
-      return
-    }
+    const projectId = readRequiredString(req.query, 'project_id', 'project_id is required')
+    const sinceNs = readRequiredInteger(req.query, 'since_ns', 'since_ns and until_ns are required')
+    const untilNs = readRequiredInteger(req.query, 'until_ns', 'since_ns and until_ns are required')
 
     const fromNs = Math.min(sinceNs, untilNs)
     const toNs = Math.max(sinceNs, untilNs)
@@ -243,7 +242,7 @@ cardinalRouter.get(
       projectId,
       sinceNs: fromNs,
       untilNs: toNs,
-      limit: parseLimit(req.query.limit, 1000, 5000),
+      limit: readBoundedInteger(req.query.limit, 1000, 1, 5000),
     })
 
     res.json({ events })

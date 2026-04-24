@@ -161,6 +161,8 @@ Validation rules:
 - Missing entities return `404`.
 - Paths for project creation MUST be absolute directories within current user home.
 - Jira endpoints return `503` when Jira credentials are not configured.
+- Reusable query/body/param parsing MUST live in `server/src/utils/validation.ts`; routes should call
+  those helpers instead of hand-rolling repeated `String(...).trim()` and bounded integer parsing.
 
 ## 9. Error Handling
 

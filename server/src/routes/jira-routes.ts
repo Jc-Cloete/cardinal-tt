@@ -10,6 +10,12 @@ import {
 } from '../cache/jira'
 import { jiraConfig } from '../config'
 import { isForceRefresh } from '../utils/requests'
+import {
+  failValidation,
+  readOptionalString,
+  readRequiredString,
+  readRequiredStrings,
+} from '../utils/validation'
 import { instrumentRoute } from './route-utils'
 
 export const jiraRouter = Router()
@@ -71,11 +77,7 @@ jiraRouter.get(
       return
     }
 
-    const projectKey = String(req.query.project_key ?? '').trim()
-    if (!projectKey) {
-      res.status(400).json({ error: 'project_key is required' })
-      return
-    }
+    const projectKey = readRequiredString(req.query, 'project_key', 'project_key is required')
 
     const forceRefresh = isForceRefresh(req.query.refresh)
     const response = await listJiraIssues(projectKey, forceRefresh)
@@ -95,11 +97,7 @@ jiraRouter.get(
       return
     }
 
-    const issueKey = String(req.params.issueKey ?? '').trim()
-    if (!issueKey) {
-      res.status(400).json({ error: 'issueKey is required' })
-      return
-    }
+    const issueKey = readRequiredString(req.params, 'issueKey', 'issueKey is required')
 
     res.json({
       transitions: await listJiraTransitions(issueKey),
@@ -114,17 +112,8 @@ jiraRouter.post(
       return
     }
 
-    const issueKey = String(req.params.issueKey ?? '').trim()
-    if (!issueKey) {
-      res.status(400).json({ error: 'issueKey is required' })
-      return
-    }
-
-    const comment = String(req.body?.comment ?? '').trim()
-    if (!comment) {
-      res.status(400).json({ error: 'comment is required' })
-      return
-    }
+    const issueKey = readRequiredString(req.params, 'issueKey', 'issueKey is required')
+    const comment = readRequiredString(req.body, 'comment', 'comment is required')
 
     const issue = await addJiraIssueComment({ issueKey, comment })
     res.json({ issue })
@@ -138,17 +127,11 @@ jiraRouter.post(
       return
     }
 
-    const issueKey = String(req.params.issueKey ?? '').trim()
-    if (!issueKey) {
-      res.status(400).json({ error: 'issueKey is required' })
-      return
-    }
-
-    const statusId = String(req.body?.statusId ?? '').trim() || undefined
-    const statusName = String(req.body?.statusName ?? '').trim() || undefined
+    const issueKey = readRequiredString(req.params, 'issueKey', 'issueKey is required')
+    const statusId = readOptionalString(req.body, 'statusId') || undefined
+    const statusName = readOptionalString(req.body, 'statusName') || undefined
     if (!statusId && !statusName) {
-      res.status(400).json({ error: 'statusId or statusName is required' })
-      return
+      failValidation('statusId or statusName is required')
     }
 
     const issue = await moveJiraIssueStatus({ issueKey, statusId, statusName })
@@ -163,18 +146,18 @@ jiraRouter.post(
       return
     }
 
-    const projectKey = String(req.body?.projectKey ?? req.body?.project_key ?? '').trim()
-    const title = String(req.body?.title ?? '').trim()
-    const description = String(req.body?.description ?? '').trim()
-    const statusName =
-      String(req.body?.statusName ?? req.body?.status_name ?? '').trim() || undefined
+    const { projectKey, title, description } = readRequiredStrings(
+      req.body,
+      {
+        projectKey: ['projectKey', 'project_key'],
+        title: 'title',
+        description: 'description',
+      },
+      'projectKey, title and description are required',
+    )
+    const statusName = readOptionalString(req.body, ['statusName', 'status_name']) || undefined
     const issueTypeName =
-      String(req.body?.issueTypeName ?? req.body?.issue_type_name ?? '').trim() || undefined
-
-    if (!projectKey || !title || !description) {
-      res.status(400).json({ error: 'projectKey, title and description are required' })
-      return
-    }
+      readOptionalString(req.body, ['issueTypeName', 'issue_type_name']) || undefined
 
     const issue = await createJiraIssue({
       projectKey,

@@ -36,14 +36,14 @@ bun run test
 - `src/app.ts`: app/middleware bootstrapping.
 - `src/routes/api.ts`: API router composition.
 - `src/routes/*-routes.ts`: route-family modules for session, activity, Jira, and CardinalDiff HTTP behavior.
-- `src/routes/route-utils.ts`: shared route instrumentation and query parsing helpers.
+- `src/routes/route-utils.ts`: shared route instrumentation helpers.
 - `src/services/session-service.ts`: session listing + preview retrieval with cache-aware parsing.
 - `src/domain/session-parser.ts`: JSONL parsing, filtering, timestamp extraction, segment construction.
 - `src/cache/session-cache.ts`: sqlite cache for processed session files.
 - `src/cache/cardinal-diff.ts`: adapters from shared Cardinal store types to API responses.
 - `src/cache/jira.ts`: Jira cache orchestration (freshness checks, fallback policy, sync writes).
 - `src/integrations/jira-client.ts`: typed Jira REST client.
-- `src/utils/*`: path safety, hashing, JSON guards, query parsing.
+- `src/utils/*`: path safety, hashing, JSON guards, query parsing, and centralized runtime validation.
 - `src/types.ts`: strict shared server-side DTOs.
 
 ## Contract Tests

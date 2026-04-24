@@ -8,22 +8,21 @@ import {
   listActivityWindowEvents,
 } from '../cache/activity'
 import { activityDataDir } from '../config'
-import { instrumentRoute, parseLimit, parseRangeIso } from './route-utils'
+import { readBoundedInteger, readRequiredIsoRange, readRequiredString } from '../utils/validation'
+import { instrumentRoute } from './route-utils'
 
 export const activityRouter = Router()
 
 activityRouter.get(
   '/activity/window-events',
   instrumentRoute('server.api.activity.window_events.list', (req: Request, res: Response) => {
-    const from = String(req.query.from ?? '').trim()
-    const to = String(req.query.to ?? '').trim()
-    const parsedRange = parseRangeIso(from, to)
-    if (!parsedRange) {
-      res.status(400).json({ error: 'from and to must be valid ISO timestamps' })
-      return
-    }
-
-    const limit = parseLimit(req.query.limit, 1000, 10000)
+    const parsedRange = readRequiredIsoRange(
+      req.query,
+      'from',
+      'to',
+      'from and to must be valid ISO timestamps',
+    )
+    const limit = readBoundedInteger(req.query.limit, 1000, 1, 10000)
     const events = listActivityWindowEvents({
       fromIso: parsedRange.fromIso,
       toIso: parsedRange.toIso,
@@ -37,15 +36,13 @@ activityRouter.get(
 activityRouter.get(
   '/activity/screenshots',
   instrumentRoute('server.api.activity.screenshots.list', (req: Request, res: Response) => {
-    const from = String(req.query.from ?? '').trim()
-    const to = String(req.query.to ?? '').trim()
-    const parsedRange = parseRangeIso(from, to)
-    if (!parsedRange) {
-      res.status(400).json({ error: 'from and to must be valid ISO timestamps' })
-      return
-    }
-
-    const limit = parseLimit(req.query.limit, 1000, 10000)
+    const parsedRange = readRequiredIsoRange(
+      req.query,
+      'from',
+      'to',
+      'from and to must be valid ISO timestamps',
+    )
+    const limit = readBoundedInteger(req.query.limit, 1000, 1, 10000)
     const frames = listActivityScreenshotFrames({
       fromIso: parsedRange.fromIso,
       toIso: parsedRange.toIso,
@@ -59,11 +56,7 @@ activityRouter.get(
 activityRouter.get(
   '/activity/screenshots/:assetId',
   instrumentRoute('server.api.activity.screenshot.get', (req: Request, res: Response) => {
-    const assetId = String(req.params.assetId ?? '').trim()
-    if (!assetId) {
-      res.status(400).json({ error: 'assetId is required' })
-      return
-    }
+    const assetId = readRequiredString(req.params, 'assetId', 'assetId is required')
 
     const storagePath = getActivityScreenshotPath(assetId)
     const resolvedStoragePath = storagePath ? path.resolve(storagePath) : ''

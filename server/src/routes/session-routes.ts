@@ -6,6 +6,7 @@ import { serverLogger } from '../observability/logger'
 import { getDaySessions, getFilteredFileContent } from '../services/session-service'
 import { readDir, resolveSafePath } from '../utils/fs-paths'
 import { getConversationBreakLimitMinutes, isForceRefresh } from '../utils/requests'
+import { failValidation, readOptionalString } from '../utils/validation'
 import { instrumentRoute, toRouteFields } from './route-utils'
 
 export const sessionRouter = Router()
@@ -38,7 +39,7 @@ sessionRouter.get(
 sessionRouter.get(
   '/months',
   instrumentRoute('server.api.months.list', (req: Request, res: Response) => {
-    const year = String(req.query.year ?? '')
+    const year = readOptionalString(req.query, 'year')
     serverLogger.log({
       event: 'server.api.months.query',
       fields: toRouteFields({ year }),
@@ -62,8 +63,8 @@ sessionRouter.get(
 sessionRouter.get(
   '/days',
   instrumentRoute('server.api.days.list', (req: Request, res: Response) => {
-    const year = String(req.query.year ?? '')
-    const month = String(req.query.month ?? '')
+    const year = readOptionalString(req.query, 'year')
+    const month = readOptionalString(req.query, 'month')
     serverLogger.log({
       event: 'server.api.days.query',
       fields: toRouteFields({ year, month }),
@@ -87,9 +88,9 @@ sessionRouter.get(
 sessionRouter.get(
   '/projects',
   instrumentRoute('server.api.projects.list', (req: Request, res: Response) => {
-    const year = String(req.query.year ?? '')
-    const month = String(req.query.month ?? '')
-    const day = String(req.query.day ?? '')
+    const year = readOptionalString(req.query, 'year')
+    const month = readOptionalString(req.query, 'month')
+    const day = readOptionalString(req.query, 'day')
     const dayPath = resolveSafePath(path.join(year, month, day))
 
     if (!fs.existsSync(dayPath)) {
@@ -123,10 +124,10 @@ sessionRouter.get(
 sessionRouter.get(
   '/files',
   instrumentRoute('server.api.files.list', (req: Request, res: Response) => {
-    const year = String(req.query.year ?? '')
-    const month = String(req.query.month ?? '')
-    const day = String(req.query.day ?? '')
-    const project = String(req.query.project ?? ALL_PROJECTS)
+    const year = readOptionalString(req.query, 'year')
+    const month = readOptionalString(req.query, 'month')
+    const day = readOptionalString(req.query, 'day')
+    const project = readOptionalString(req.query, 'project', ALL_PROJECTS)
     const dayPath = resolveSafePath(path.join(year, month, day))
 
     if (!fs.existsSync(dayPath)) {
@@ -162,15 +163,14 @@ sessionRouter.get(
 sessionRouter.get(
   '/file',
   instrumentRoute('server.api.file.get', (req: Request, res: Response) => {
-    const relativePath = String(req.query.relative_path ?? '').trim()
-    const year = String(req.query.year ?? '')
-    const month = String(req.query.month ?? '')
-    const day = String(req.query.day ?? '')
-    const file = String(req.query.file ?? '')
+    const relativePath = readOptionalString(req.query, 'relative_path')
+    const year = readOptionalString(req.query, 'year')
+    const month = readOptionalString(req.query, 'month')
+    const day = readOptionalString(req.query, 'day')
+    const file = readOptionalString(req.query, 'file')
     const fallbackPath = path.join(year, month, day, file)
     if (!relativePath && !file.trim()) {
-      res.status(400).json({ error: 'relative_path or file is required' })
-      return
+      failValidation('relative_path or file is required')
     }
     const resolvedRelativePath = relativePath || fallbackPath
     const filePath = resolveSafePath(resolvedRelativePath)

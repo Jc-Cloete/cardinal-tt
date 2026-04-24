@@ -49,29 +49,3 @@ export const instrumentRoute =
   }
 
 export const toRouteFields = (fields: WideEventObject): WideEventObject => fields
-
-export const parseRangeIso = (
-  fromRaw: string,
-  toRaw: string,
-): { fromIso: string; toIso: string } | null => {
-  const fromMs = Date.parse(fromRaw)
-  const toMs = Date.parse(toRaw)
-  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
-    return null
-  }
-
-  const startMs = Math.min(fromMs, toMs)
-  const endMs = Math.max(fromMs, toMs)
-  return {
-    fromIso: new Date(startMs).toISOString(),
-    toIso: new Date(endMs).toISOString(),
-  }
-}
-
-export const parseLimit = (value: unknown, fallback: number, max: number): number => {
-  const parsed = Number.parseInt(String(value ?? ''), 10)
-  if (!Number.isFinite(parsed)) {
-    return fallback
-  }
-  return Math.max(1, Math.min(parsed, max))
-}
