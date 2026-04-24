@@ -19,6 +19,22 @@ Project specifications and design artifacts.
 
 When implementing features, treat specs here as product requirements and use workspace READMEs for implementation details.
 
+## Quality Gates
+
+Local quality checks:
+
+```bash
+bun run check
+```
+
+Coverage visibility and thresholds:
+
+```bash
+bun run test:coverage
+```
+
+The coverage gate is implemented in `scripts/coverage.ts`. It runs Bun coverage for `server`, `client`, `cardinal-diff`, `cardinal-store`, and `cardinal-activity`, then fails if workspace function or line coverage drops below the configured thresholds.
+
 Workspace docs to keep in sync with specs:
 
 - `README.md`

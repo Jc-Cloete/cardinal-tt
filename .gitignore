@@ -2,6 +2,7 @@ node_modules/
 .env
 rollout-*.jsonl
 client/dist/
+.coverage/
 *.sqlite
 .cache/sessions-cache.sqlite-shm
 .cache/sessions-cache.sqlite-wal

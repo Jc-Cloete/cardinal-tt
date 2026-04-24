@@ -61,6 +61,26 @@ Run strict type checks:
 bun run typecheck
 ```
 
+Run the full local quality gate:
+
+```bash
+bun run check
+```
+
+Run coverage visibility and threshold checks:
+
+```bash
+bun run test:coverage
+```
+
+Current coverage thresholds are enforced per workspace by `scripts/coverage.ts`:
+
+- `server`: 85% functions, 85% lines
+- `client`: 90% functions, 90% lines
+- `cardinal-diff`: 70% functions, 70% lines
+- `cardinal-store`: 90% functions, 90% lines
+- `cardinal-activity`: 20% functions, 40% lines
+
 ## Runtime Data Paths
 
 - Session source root: `~/.codex/sessions` by default, override with `DATA_ROOT`.
