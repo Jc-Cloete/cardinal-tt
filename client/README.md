@@ -17,6 +17,7 @@ bun run typecheck
 - TypeScript strict mode
 - Vite
 - Radix Themes + Radix Icons
+- `happy-dom` for focused rendered component behavior tests
 
 ## Source Layout
 
@@ -77,3 +78,8 @@ bun run typecheck
 - Jira defaults are read from app settings and applied per selected project.
 - Filter defaults apply only when issue data for the selected project has been loaded.
 - Jira issue loading guards against stale in-flight responses during rapid project switches.
+
+## Testing
+
+- Pure utility tests cover date, display, preview, and timeline model logic.
+- DOM behavior tests cover rendered UI behavior such as theme toggling and timeline item selection.

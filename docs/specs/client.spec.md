@@ -192,6 +192,7 @@ Mechanically enforced requirements:
 | SPEC-CLIENT-PREVIEW | Preview parsing accepts valid response-item messages and ignores invalid/non-message records. | `client/src/__tests__/preview.test.ts` |
 | SPEC-CLIENT-TIMELINE | Timeline model generation handles empty data, idle-gap sections, overlap lanes, and cross-day ranges. | `client/src/__tests__/timeline.test.ts` |
 | SPEC-CLIENT-DISPLAY | Display helpers provide stable fallback labels for project and role values. | `client/src/__tests__/display.test.ts` |
+| SPEC-CLIENT-THEME | Theme controls render the persisted default mode and update stored preference when toggled. | `client/src/__tests__/theme-toggle.behavior.test.tsx` |
 
 ## 10. Change Management
 
