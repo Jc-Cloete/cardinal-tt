@@ -35,6 +35,14 @@ bun run test:coverage
 
 The coverage gate is implemented in `scripts/coverage.ts`. It runs Bun coverage for `server`, `client`, `cardinal-diff`, `cardinal-store`, and `cardinal-activity`, then fails if workspace function or line coverage drops below the configured thresholds.
 
+Architecture boundary enforcement:
+
+```bash
+bun run architecture:check
+```
+
+The architecture gate is implemented in `scripts/architecture.ts`. It scans TypeScript imports and fails on undeclared local workspace dependencies or relative imports that cross workspace boundaries.
+
 Workspace docs to keep in sync with specs:
 
 - `README.md`

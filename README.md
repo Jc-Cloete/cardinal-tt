@@ -73,6 +73,12 @@ Run coverage visibility and threshold checks:
 bun run test:coverage
 ```
 
+Run workspace architecture boundary checks:
+
+```bash
+bun run architecture:check
+```
+
 Current coverage thresholds are enforced per workspace by `scripts/coverage.ts`:
 
 - `server`: 85% functions, 85% lines
@@ -80,6 +86,16 @@ Current coverage thresholds are enforced per workspace by `scripts/coverage.ts`:
 - `cardinal-diff`: 70% functions, 70% lines
 - `cardinal-store`: 90% functions, 90% lines
 - `cardinal-activity`: 20% functions, 40% lines
+
+Architecture boundaries are enforced by `scripts/architecture.ts`:
+
+- `client` may import `cardinal-observability`.
+- `server` may import `cardinal-observability` and `cardinal-store`.
+- `cardinal-diff` may import `cardinal-observability` and `cardinal-store`.
+- `cardinal-activity` may import `cardinal-observability` and `cardinal-store`.
+- `cardinal-store` may import `cardinal-observability`.
+- `cardinal-observability` may not import local workspaces.
+- Relative imports may not cross from one workspace into another.
 
 ## Runtime Data Paths
 

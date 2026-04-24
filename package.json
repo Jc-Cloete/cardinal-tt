@@ -24,7 +24,8 @@
     "lint:fix": "concurrently -n root,server,client,diff,store,activity -c white,blue,green,magenta,yellow,cyan \"bun run biome:fix\" \"cd server && bun run lint:fix\" \"cd client && bun run lint:fix\" \"cd cardinal-diff && bun run lint:fix\" \"cd cardinal-store && bun run lint:fix\" \"cd cardinal-activity && bun run lint:fix\"",
     "test": "concurrently -n server,api,client,diff,store,activity,scripts -c blue,red,green,magenta,yellow,cyan,white \"cd server && bun run test\" \"cd server && bun run test:api\" \"cd client && bun run test\" \"cd cardinal-diff && bun run test\" \"cd cardinal-store && bun run test\" \"cd cardinal-activity && bun run test\" \"bun test scripts\"",
     "test:coverage": "bun run scripts/coverage.ts",
-    "check": "bun run biome:check && bun run typecheck && bun run test && bun run test:coverage"
+    "architecture:check": "bun run scripts/architecture.ts",
+    "check": "bun run biome:check && bun run typecheck && bun run test && bun run test:coverage && bun run architecture:check"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
