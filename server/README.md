@@ -34,7 +34,9 @@ bun run test
 ## Source Layout
 
 - `src/app.ts`: app/middleware bootstrapping.
-- `src/routes/api.ts`: HTTP routes and request validation.
+- `src/routes/api.ts`: API router composition.
+- `src/routes/*-routes.ts`: route-family modules for session, activity, Jira, and CardinalDiff HTTP behavior.
+- `src/routes/route-utils.ts`: shared route instrumentation and query parsing helpers.
 - `src/services/session-service.ts`: session listing + preview retrieval with cache-aware parsing.
 - `src/domain/session-parser.ts`: JSONL parsing, filtering, timestamp extraction, segment construction.
 - `src/cache/session-cache.ts`: sqlite cache for processed session files.

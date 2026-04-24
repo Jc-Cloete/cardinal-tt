@@ -13,6 +13,10 @@ Scope: `server`
 - Reading activity-tracking state (window events + screenshot frames/assets) from shared SQLite
 - Integrating Jira with cache-aware project/issue workflows
 
+The API surface is composed in `server/src/routes/api.ts`; route-family behavior lives in
+dedicated `*-routes.ts` modules so session, activity, Jira, and CardinalDiff contracts can
+evolve independently.
+
 ## 2. Non-Goals
 
 - No direct watcher/event ingestion (owned by `cardinal-diff`)
