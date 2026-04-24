@@ -5,6 +5,7 @@ import { PreviewModal } from './components/PreviewModal'
 import { ThemeToggle } from './components/ThemeToggle'
 import { TimelinePanel } from './components/TimelinePanel'
 import { ALL_PROJECTS, UNKNOWN_PROJECT } from './constants'
+import { ActivityPage } from './features/activity/ActivityPage'
 import { CardinalDiffPanel } from './features/cardinal/CardinalDiffPanel'
 import { CardinalEventsPage } from './features/cardinal/CardinalEventsPage'
 import { CardinalHeartbeatBadge } from './features/cardinal/CardinalHeartbeatBadge'
@@ -19,7 +20,7 @@ import { getProjectDisplayName } from './utils/display'
 import { parsePreviewMessages } from './utils/preview'
 import { buildCompressedTimeline } from './utils/timeline'
 
-type AppPage = 'explorer' | 'events' | 'jira' | 'settings'
+type AppPage = 'explorer' | 'events' | 'activity' | 'jira' | 'settings'
 
 const appLogger = clientLogger.child({ component: 'app' })
 
@@ -153,6 +154,12 @@ export default function App() {
           <Button variant={page === 'events' ? 'solid' : 'soft'} onClick={() => setPage('events')}>
             Events
           </Button>
+          <Button
+            variant={page === 'activity' ? 'solid' : 'soft'}
+            onClick={() => setPage('activity')}
+          >
+            Activity
+          </Button>
           <Button variant={page === 'jira' ? 'solid' : 'soft'} onClick={() => setPage('jira')}>
             Jira
           </Button>
@@ -198,6 +205,8 @@ export default function App() {
         </>
       ) : page === 'events' ? (
         <CardinalEventsPage projects={trackedProjects} />
+      ) : page === 'activity' ? (
+        <ActivityPage />
       ) : page === 'jira' ? (
         <JiraPage defaults={settings.jira} />
       ) : (

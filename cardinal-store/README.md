@@ -7,6 +7,7 @@ Shared persistence workspace used by both:
 
 It provides a strict type model and a single sqlite schema/query implementation for CardinalDiff data.
 It also stores Jira cache entities/sync markers used by `server`.
+It now also stores activity-tracking data (active window events + screenshot frames/assets).
 
 ## Script
 
@@ -25,6 +26,11 @@ bun run typecheck
   - `listJiraIssues`, `replaceJiraIssues`, `upsertJiraIssue`
   - `listJiraIssueStatusOptions`, `listJiraIssueAssigneeOptions`
   - `getJiraSyncAt`
+- activity APIs:
+  - `insertActivityWindowEvent`, `listActivityWindowEvents`
+  - `upsertActivityScreenshotAsset`, `getActivityScreenshotAssetById`
+  - `insertActivityScreenshotFrame`, `listActivityScreenshotFrames`
+  - `recordActivityHeartbeat`, `getLatestActivityHeartbeat`
 
 ## Schema Ownership
 
@@ -37,6 +43,7 @@ bun run typecheck
 - project reprocess transaction (clear project commit/index history and replace with fresh index + cursor)
 - Jira cache transactions (projects/issues snapshots + sync state updates)
 - Jira filter option queries (distinct status and assignee values from cached issues)
+- activity window/screenshot persistence and time-range queries
 
 Keeping schema logic here prevents drift between the agent writer and API reader.
 

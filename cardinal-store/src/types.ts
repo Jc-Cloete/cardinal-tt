@@ -116,3 +116,33 @@ export type JiraCachedIssue = {
   rawJson: string
   cachedAt: string
 }
+
+export type ActivityWindowEvent = {
+  eventId: string
+  observedAt: string
+  appName: string
+  windowTitle: string
+  bundleId: string | null
+  ownerPid: number | null
+}
+
+export type ActivityScreenshotAsset = {
+  assetId: string
+  sha256: string
+  storagePath: string
+  bytes: number
+  width: number | null
+  height: number | null
+  createdAt: string
+}
+
+export type ActivityScreenshotFrame = {
+  frameId: string
+  observedAt: string
+  assetId: string
+}
+
+export type ActivityHeartbeatRow = {
+  createdAt: string
+  agentPid: number | null
+}

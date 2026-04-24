@@ -12,6 +12,7 @@ Scope: `client`
 - Inspecting filtered preview messages in a modal
 - Managing CardinalDiff tracking status and heartbeat visibility
 - Browsing cardinal event streams by project/time range
+- Scrubbing daily activity via screenshots and active-window events
 - Managing Jira projects/issues, comments, transitions, and ticket creation
 - Configuring default Jira project/status/assignee filters
 - Displaying global toast notifications for user-triggered outcomes
@@ -52,6 +53,7 @@ All data is read via `fetch` from `server` APIs:
 
 - Session explorer endpoints under `/api/*`
 - Cardinal endpoints under `/api/cardinal/*`
+- Activity endpoints under `/api/activity/*`
 - Jira endpoints under `/api/jira/*`
 
 No mock or offline mode is currently part of the production contract.
@@ -93,13 +95,23 @@ Timeline must be vertical and support:
   - `offline`
 - Status is derived from server heartbeat endpoint polling.
 
-### 5.5 Theme behavior
+### 5.5 Activity scrubbing behavior
+
+- Activity page must support day + time-range playback.
+- Screenshot frames are shown as:
+  - selectable thumbnail strip
+  - large preview for selected frame
+  - range slider for rapid scrubbing
+- Active window events are shown alongside playback.
+- A tracker heartbeat badge must show healthy/stale/offline states.
+
+### 5.6 Theme behavior
 
 - Dark mode is default.
 - User can toggle dark/light.
 - Preference persists in `localStorage`.
 
-### 5.6 Jira behavior
+### 5.7 Jira behavior
 
 - Jira page must support project list and issue list browsing.
 - Jira mutations must update UI immediately by reloading affected issue lists.
@@ -110,7 +122,7 @@ Timeline must be vertical and support:
 - Default filter application must wait for issue data loaded for the currently selected project.
 - Jira issue loading must ignore stale in-flight responses when the selected project changes quickly.
 
-### 5.7 Settings behavior
+### 5.8 Settings behavior
 
 - Settings are persisted in localStorage.
 - Jira defaults include:
@@ -120,7 +132,7 @@ Timeline must be vertical and support:
 - Options for defaults are sourced from `/api/jira/filter-options`.
 - Settings save/reset/reload actions are user-triggered and must be non-blocking.
 
-### 5.8 Notification behavior
+### 5.9 Notification behavior
 
 - A global toast provider must render top-right notifications.
 - Toasts must follow active theme (dark/light) and typography.
@@ -132,6 +144,7 @@ Timeline must be vertical and support:
 - Conversation explorer state is managed in `useConversationExplorer`.
 - Cardinal tracking/heartbeat state is managed in `useCardinalStatus`.
 - Cardinal diff compare state is managed in `useCardinalDiff`.
+- Activity scrubber state is managed in `useActivity`.
 - Jira state/actions are managed in `useJira`.
 - App settings state is managed in `useAppSettings`.
 - Notification state is managed in `ToastProvider`.
@@ -178,3 +191,8 @@ When UI contracts change, update:
 - `client/README.md`
 - `docs/specs/client.spec.md`
 - API assumptions in `docs/specs/server.spec.md`
+5. Activity page:
+   - day/from/to/limit controls
+   - screenshot scrubber (slider + thumbnail strip)
+   - active window context list
+   - activity tracker heartbeat status

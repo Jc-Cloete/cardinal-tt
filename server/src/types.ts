@@ -148,3 +148,30 @@ export type JiraTransition = {
   toStatusId: string | null
   toStatusName: string | null
 }
+
+export type ActivityWindowEvent = {
+  eventId: string
+  observedAt: string
+  appName: string
+  windowTitle: string
+  bundleId: string | null
+  ownerPid: number | null
+}
+
+export type ActivityScreenshotFrame = {
+  frameId: string
+  observedAt: string
+  assetId: string
+  bytes: number
+  width: number | null
+  height: number | null
+  url: string
+}
+
+export type ActivityHeartbeatStatus = {
+  healthy: boolean
+  staleAfterSeconds: number
+  secondsSinceHeartbeat: number | null
+  lastHeartbeatAt: string | null
+  agentPid: number | null
+}

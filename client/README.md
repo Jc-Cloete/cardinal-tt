@@ -20,9 +20,10 @@ bun run typecheck
 
 ## Source Layout
 
-- `src/App.tsx`: top-level page switcher (`explorer` / `events` / `jira` / `settings`) and shared UI composition.
+- `src/App.tsx`: top-level page switcher (`explorer` / `events` / `activity` / `jira` / `settings`) and shared UI composition.
 - `src/hooks/useConversationExplorer.ts`: data-loading orchestration for year/month/day/project/files/preview.
 - `src/components/*`: explorer controls, timeline, preview modal, theme toggle, reusable searchable multi-select dropdown.
+- `src/features/activity/*`: activity scrubber UI for screenshot frame playback + active-window context.
 - `src/features/cardinal/*`: CardinalDiff status hooks, diff UI, heartbeat badge, events page.
 - `src/features/jira/*`: Jira project/issue listing, ticket creation, comments, transitions.
 - `src/features/settings/*`: persisted app settings for Jira defaults and options loading.
@@ -46,6 +47,11 @@ bun run typecheck
 - Timeline selection uses a stable `relativePath` file key so conversations that span multiple days can be opened from any day timeline.
 - Header shows CardinalDiff heartbeat (`healthy`/`stale`/`offline`).
 - `Events` page supports project + datetime-range event stream browsing.
+- `Activity` page supports:
+  - day + time range scrubbing
+  - screenshot frame timeline/slider playback
+  - active window event context
+  - tracker heartbeat status display
 - `Jira` page supports:
   - project list and ticket list browsing
   - searchable multi-select status/assignee filters

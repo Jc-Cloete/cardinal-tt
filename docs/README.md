@@ -12,6 +12,8 @@ Project specifications and design artifacts.
   - Source-of-truth spec for frontend UX/state/timeline behavior and cardinal integrations.
 - `docs/specs/cardinal_diff.spec.md`
   - Production-target spec for CardinalDiff watcher/storage/CLI behavior.
+- `docs/specs/cardinal_activity.spec.md`
+  - Source-of-truth spec for window/screenshot activity tracking service behavior.
 
 ## Usage
 
@@ -23,5 +25,6 @@ Workspace docs to keep in sync with specs:
 - `client/README.md`
 - `server/README.md`
 - `cardinal-diff/README.md`
+- `cardinal-activity/README.md`
 - `cardinal-store/README.md`
 - `cardinal-observability/README.md`

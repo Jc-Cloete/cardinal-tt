@@ -2,7 +2,7 @@
 
 Status: Active  
 Scope: `cardinal-store`  
-Consumers: `server`, `cardinal-diff`
+Consumers: `server`, `cardinal-diff`, `cardinal-activity`
 
 ## 1. Purpose
 
@@ -32,6 +32,11 @@ Returned store capabilities:
 - Project maintenance: `reprocessProject` (clear project history and replace index snapshot/cursor atomically)
 - Commit writing: `writeCommit`
 - Metrics/heartbeat: `recordProjectMetrics`, `recordHeartbeat`, `getLatestHeartbeat`
+- Activity tracking:
+  - `insertActivityWindowEvent`, `listActivityWindowEvents`
+  - `upsertActivityScreenshotAsset`, `getActivityScreenshotAssetById`
+  - `insertActivityScreenshotFrame`, `listActivityScreenshotFrames`
+  - `recordActivityHeartbeat`, `getLatestActivityHeartbeat`
 - Jira cache:
   - `listJiraProjects`, `replaceJiraProjects`
   - `listJiraIssues`, `replaceJiraIssues`, `upsertJiraIssue`
@@ -53,6 +58,9 @@ Primary tables:
 - `jira_projects`
 - `jira_issues`
 - `jira_sync_state`
+- `activity_window_events`
+- `activity_screenshot_assets`
+- `activity_screenshot_frames`
 
 Indexes:
 

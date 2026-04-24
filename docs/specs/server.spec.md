@@ -10,6 +10,7 @@ Scope: `server`
 - Exploring Codex session data (`DATA_ROOT`)
 - Returning filtered conversation previews
 - Reading CardinalDiff state from shared SQLite (`cardinal-store` adapters)
+- Reading activity-tracking state (window events + screenshot frames/assets) from shared SQLite
 - Integrating Jira with cache-aware project/issue workflows
 
 ## 2. Non-Goals
@@ -31,6 +32,7 @@ Environment:
 - `JIRA_DEFAULT_ISSUE_TYPE` (default `Task`)
 - `JIRA_PROJECTS_CACHE_TTL_MS` (default `300000`)
 - `JIRA_ISSUES_CACHE_TTL_MS` (default `60000`)
+- `CARDINAL_ACTIVITY_DATA_DIR` (used to validate activity screenshot file serving)
 
 ## 4. Responsibilities
 
@@ -38,9 +40,10 @@ Environment:
 2. Parse and filter JSONL content for preview-safe output.
 3. Cache processed file data using stable hash + file metadata checks to avoid repeated work.
 4. Expose CardinalDiff endpoints under `/api/cardinal/*`.
-5. Expose Jira endpoints under `/api/jira/*` with cache/refresh semantics.
-6. Derive Jira filter option metadata (project/status/assignee) from cache and remote hydration.
-7. Enforce safe path resolution against traversal attempts.
+5. Expose activity endpoints under `/api/activity/*`.
+6. Expose Jira endpoints under `/api/jira/*` with cache/refresh semantics.
+7. Derive Jira filter option metadata (project/status/assignee) from cache and remote hydration.
+8. Enforce safe path resolution against traversal attempts.
 
 ## 5. Session Processing Contract
 
@@ -102,7 +105,20 @@ Health:
 
 - `GET /api/cardinal/heartbeat`
 
-## 7. Jira API Contract
+## 7. Activity API Contract
+
+- `GET /api/activity/window-events?from=...&to=...&limit=...`
+- `GET /api/activity/screenshots?from=...&to=...&limit=...`
+- `GET /api/activity/screenshots/:assetId`
+- `GET /api/activity/heartbeat`
+
+Behavior:
+
+- `from`/`to` are required ISO timestamps.
+- Screenshot listing returns frame rows + asset metadata derived from shared store.
+- Screenshot file route serves only files inside configured activity data root.
+
+## 8. Jira API Contract
 
 Project/issue listing:
 
@@ -142,26 +158,27 @@ Validation rules:
 - Paths for project creation MUST be absolute directories within current user home.
 - Jira endpoints return `503` when Jira credentials are not configured.
 
-## 8. Error Handling
+## 9. Error Handling
 
 - Route-level guards return explicit `400`/`404` responses.
 - Global express error middleware returns structured `{ error: string }`.
 - File parsing failures in session enumeration are isolated per file (best-effort list).
 
-## 9. Security and Safety
+## 10. Security and Safety
 
 - `resolveSafePath` MUST block traversal outside `DATA_ROOT`.
 - No raw SQL in server package (all DB interaction via typed cache adapters).
 - CORS and JSON parsing middleware enabled for local app consumption.
+- Activity screenshot serving MUST validate the resolved file path is inside `CARDINAL_ACTIVITY_DATA_DIR`.
 
-## 10. Performance Expectations
+## 11. Performance Expectations
 
 - Day-level browsing should avoid full file reparsing on repeated access.
 - API operations are synchronous file/DB reads today; acceptable for local desktop usage.
-- Query limits are bounded on cardinal endpoints to avoid excessive payloads.
+- Query limits are bounded on cardinal/activity endpoints to avoid excessive payloads.
 - Jira reads should primarily hit sqlite cache and only sync remotely when stale/forced.
 
-## 11. Test Requirements
+## 12. Test Requirements
 
 Minimum required server tests:
 
@@ -177,8 +194,9 @@ Minimum required server tests:
   - invalid json lines
   - missing directory reads
   - Jira cache freshness/fallback behavior
+  - activity range query validation and screenshot file safety checks
 
-## 12. Change Management
+## 13. Change Management
 
 When endpoint behavior changes, update all of:
 

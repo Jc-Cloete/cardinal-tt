@@ -29,6 +29,9 @@ const defaultCacheDbPath = fs.existsSync(specCacheDbPath)
     ? legacyCacheDbPath
     : specCacheDbPath
 export const cacheDbPath = path.resolve(process.env.CACHE_DB_PATH || defaultCacheDbPath)
+export const activityDataDir = path.resolve(
+  process.env.CARDINAL_ACTIVITY_DATA_DIR || path.join(process.env.HOME || '', '.cardinal-activity'),
+)
 
 const parsePositiveNumber = (rawValue: string | undefined, fallback: number): number => {
   const parsed = Number.parseInt(String(rawValue || ''), 10)

@@ -328,6 +328,79 @@ describe('cardinal-store createCardinalStore', () => {
     }
   })
 
+  it('stores activity window events, screenshot assets/frames, and heartbeat', () => {
+    const { rootDir, dbPath } = makeTempDbPath()
+
+    try {
+      const store = createCardinalStore(dbPath)
+      const first = '2026-02-22T10:00:00.000Z'
+      const second = '2026-02-22T10:00:10.000Z'
+
+      store.insertActivityWindowEvent({
+        eventId: 'evt-1',
+        observedAt: first,
+        appName: 'Terminal',
+        windowTitle: 'shell',
+        bundleId: 'com.apple.Terminal',
+        ownerPid: 1234,
+      })
+      store.insertActivityWindowEvent({
+        eventId: 'evt-2',
+        observedAt: second,
+        appName: 'Firefox',
+        windowTitle: 'Docs',
+        bundleId: 'org.mozilla.firefox',
+        ownerPid: 2345,
+      })
+
+      const windowEvents = store.listActivityWindowEvents({
+        fromIso: '2026-02-22T09:59:00.000Z',
+        toIso: '2026-02-22T10:01:00.000Z',
+      })
+      expect(windowEvents).toHaveLength(2)
+      expect(windowEvents[0]?.appName).toBe('Terminal')
+
+      store.upsertActivityScreenshotAsset({
+        assetId: 'asset-1',
+        sha256: 'hash-1',
+        storagePath: '/tmp/asset-1.jpg',
+        bytes: 1000,
+        width: 1920,
+        height: 1080,
+        createdAt: first,
+      })
+      store.insertActivityScreenshotFrame({
+        frameId: 'frame-1',
+        observedAt: first,
+        assetId: 'asset-1',
+      })
+      store.insertActivityScreenshotFrame({
+        frameId: 'frame-2',
+        observedAt: second,
+        assetId: 'asset-1',
+      })
+
+      const storedAsset = store.getActivityScreenshotAssetById('asset-1')
+      expect(storedAsset?.sha256).toBe('hash-1')
+      expect(storedAsset?.bytes).toBe(1000)
+
+      const frames = store.listActivityScreenshotFrames({
+        fromIso: '2026-02-22T09:59:00.000Z',
+        toIso: '2026-02-22T10:01:00.000Z',
+      })
+      expect(frames).toHaveLength(2)
+      expect(frames[1]?.frameId).toBe('frame-2')
+
+      expect(store.getLatestActivityHeartbeat()).toBeNull()
+      store.recordActivityHeartbeat({ agentPid: 8888 })
+      const activityHeartbeat = store.getLatestActivityHeartbeat()
+      expect(activityHeartbeat?.agentPid).toBe(8888)
+      expect(typeof activityHeartbeat?.createdAt).toBe('string')
+    } finally {
+      cleanup(rootDir)
+    }
+  })
+
   it('throws when opened against an invalid sqlite path', () => {
     const dirPath = fs.mkdtempSync(path.join(os.tmpdir(), 'cardinal-store-invalid-'))
 

@@ -12,6 +12,10 @@ import {
 } from './defaults'
 import { storeLogger } from './observability'
 import type {
+  ActivityHeartbeatRow,
+  ActivityScreenshotAsset,
+  ActivityScreenshotFrame,
+  ActivityWindowEvent,
   ChangedEntry,
   CommitEntryRow,
   CommitRecord,
@@ -172,6 +176,76 @@ const toJiraCachedIssue = (value: JsonValue): JiraCachedIssue | null => {
   }
 }
 
+const toActivityWindowEvent = (value: JsonValue): ActivityWindowEvent | null => {
+  const row = value as JsonObject | null
+  if (!row) {
+    return null
+  }
+
+  const eventId = asString(row.event_id)
+  const observedAt = asString(row.observed_at)
+  const appName = asString(row.app_name)
+  const windowTitle = asString(row.window_title)
+  if (!eventId || !observedAt || !appName || windowTitle === null) {
+    return null
+  }
+
+  return {
+    eventId,
+    observedAt,
+    appName,
+    windowTitle,
+    bundleId: asString(row.bundle_id),
+    ownerPid: asNumber(row.owner_pid),
+  }
+}
+
+const toActivityScreenshotAsset = (value: JsonValue): ActivityScreenshotAsset | null => {
+  const row = value as JsonObject | null
+  if (!row) {
+    return null
+  }
+
+  const assetId = asString(row.asset_id)
+  const sha256 = asString(row.sha256)
+  const storagePath = asString(row.storage_path)
+  const createdAt = asString(row.created_at)
+  const bytes = asNumber(row.bytes)
+  if (!assetId || !sha256 || !storagePath || !createdAt || bytes === null) {
+    return null
+  }
+
+  return {
+    assetId,
+    sha256,
+    storagePath,
+    bytes,
+    width: asNumber(row.width),
+    height: asNumber(row.height),
+    createdAt,
+  }
+}
+
+const toActivityScreenshotFrame = (value: JsonValue): ActivityScreenshotFrame | null => {
+  const row = value as JsonObject | null
+  if (!row) {
+    return null
+  }
+
+  const frameId = asString(row.frame_id)
+  const observedAt = asString(row.observed_at)
+  const assetId = asString(row.asset_id)
+  if (!frameId || !observedAt || !assetId) {
+    return null
+  }
+
+  return {
+    frameId,
+    observedAt,
+    assetId,
+  }
+}
+
 type CardinalStore = {
   listProjects: () => ProjectConfig[]
   getProjectById: (projectId: string) => ProjectConfig | null
@@ -213,6 +287,22 @@ type CardinalStore = {
   }) => void
   recordHeartbeat: (args: { projectCount: number; agentPid: number }) => void
   getLatestHeartbeat: () => HeartbeatRow | null
+  recordActivityHeartbeat: (args: { agentPid: number }) => void
+  getLatestActivityHeartbeat: () => ActivityHeartbeatRow | null
+  insertActivityWindowEvent: (event: ActivityWindowEvent) => void
+  listActivityWindowEvents: (args: {
+    fromIso: string
+    toIso: string
+    limit?: number
+  }) => ActivityWindowEvent[]
+  upsertActivityScreenshotAsset: (asset: ActivityScreenshotAsset) => void
+  getActivityScreenshotAssetById: (assetId: string) => ActivityScreenshotAsset | null
+  insertActivityScreenshotFrame: (frame: ActivityScreenshotFrame) => void
+  listActivityScreenshotFrames: (args: {
+    fromIso: string
+    toIso: string
+    limit?: number
+  }) => ActivityScreenshotFrame[]
   listJiraProjects: () => JiraCachedProject[]
   replaceJiraProjects: (args: { projects: JiraCachedProject[]; syncedAt: string }) => void
   listJiraIssues: (projectKey: string) => JiraCachedIssue[]
@@ -364,10 +454,41 @@ export const createCardinalStore = (dbPath: string): CardinalStore => {
       synced_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS activity_window_events (
+      event_id TEXT PRIMARY KEY,
+      observed_at TEXT NOT NULL,
+      app_name TEXT NOT NULL,
+      window_title TEXT NOT NULL,
+      bundle_id TEXT,
+      owner_pid INTEGER,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS activity_screenshot_assets (
+      asset_id TEXT PRIMARY KEY,
+      sha256 TEXT NOT NULL UNIQUE,
+      storage_path TEXT NOT NULL,
+      bytes INTEGER NOT NULL,
+      width INTEGER,
+      height INTEGER,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS activity_screenshot_frames (
+      frame_id TEXT PRIMARY KEY,
+      observed_at TEXT NOT NULL,
+      asset_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (asset_id) REFERENCES activity_screenshot_assets(asset_id) ON DELETE RESTRICT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_cardinal_commits_project_time ON cardinal_commits(project_id, ended_at_ns);
     CREATE INDEX IF NOT EXISTS idx_cardinal_metrics_project_time ON cardinal_metrics(project_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_jira_issues_project_key ON jira_issues(project_key);
     CREATE INDEX IF NOT EXISTS idx_jira_issues_updated_at ON jira_issues(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_activity_window_events_observed_at ON activity_window_events(observed_at);
+    CREATE INDEX IF NOT EXISTS idx_activity_screenshot_frames_observed_at ON activity_screenshot_frames(observed_at);
+    CREATE INDEX IF NOT EXISTS idx_activity_screenshot_frames_asset_id ON activity_screenshot_frames(asset_id);
   `)
 
   const addColumnIfMissing = (table: string, column: string, ddl: string): void => {
@@ -571,6 +692,97 @@ export const createCardinalStore = (dbPath: string): CardinalStore => {
       meta_json
     FROM cardinal_metrics
     WHERE metric_name = 'heartbeat'
+    ORDER BY metric_id DESC
+    LIMIT 1
+  `)
+
+  const insertActivityWindowEventStmt = db.query(`
+    INSERT OR IGNORE INTO activity_window_events (
+      event_id,
+      observed_at,
+      app_name,
+      window_title,
+      bundle_id,
+      owner_pid,
+      created_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+  `)
+
+  const selectActivityWindowEventsStmt = db.query(`
+    SELECT
+      event_id,
+      observed_at,
+      app_name,
+      window_title,
+      bundle_id,
+      owner_pid
+    FROM activity_window_events
+    WHERE observed_at >= ?1
+      AND observed_at <= ?2
+    ORDER BY observed_at ASC
+    LIMIT ?3
+  `)
+
+  const upsertActivityScreenshotAssetStmt = db.query(`
+    INSERT INTO activity_screenshot_assets (
+      asset_id,
+      sha256,
+      storage_path,
+      bytes,
+      width,
+      height,
+      created_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+    ON CONFLICT(asset_id) DO UPDATE SET
+      sha256=excluded.sha256,
+      storage_path=excluded.storage_path,
+      bytes=excluded.bytes,
+      width=excluded.width,
+      height=excluded.height,
+      created_at=excluded.created_at
+  `)
+
+  const selectActivityScreenshotAssetByIdStmt = db.query(`
+    SELECT
+      asset_id,
+      sha256,
+      storage_path,
+      bytes,
+      width,
+      height,
+      created_at
+    FROM activity_screenshot_assets
+    WHERE asset_id = ?1
+    LIMIT 1
+  `)
+
+  const insertActivityScreenshotFrameStmt = db.query(`
+    INSERT OR IGNORE INTO activity_screenshot_frames (
+      frame_id,
+      observed_at,
+      asset_id,
+      created_at
+    ) VALUES (?1, ?2, ?3, ?4)
+  `)
+
+  const selectActivityScreenshotFramesStmt = db.query(`
+    SELECT
+      frame_id,
+      observed_at,
+      asset_id
+    FROM activity_screenshot_frames
+    WHERE observed_at >= ?1
+      AND observed_at <= ?2
+    ORDER BY observed_at ASC
+    LIMIT ?3
+  `)
+
+  const selectLatestActivityHeartbeatStmt = db.query(`
+    SELECT
+      created_at,
+      meta_json
+    FROM cardinal_metrics
+    WHERE metric_name = 'activity_heartbeat'
     ORDER BY metric_id DESC
     LIMIT 1
   `)
@@ -1188,6 +1400,185 @@ export const createCardinalStore = (dbPath: string): CardinalStore => {
             projectCount,
             agentPid,
           }
+        },
+        'debug',
+      ),
+
+    recordActivityHeartbeat: (args: { agentPid: number }): void =>
+      runStore(
+        'cardinal.store.metrics.activity_heartbeat.record',
+        {
+          agent_pid: args.agentPid,
+        },
+        () => {
+          insertMetricStmt.run(
+            null,
+            'activity_heartbeat',
+            1,
+            JSON.stringify({ agentPid: args.agentPid }),
+            new Date().toISOString(),
+          )
+        },
+      ),
+
+    getLatestActivityHeartbeat: (): ActivityHeartbeatRow | null =>
+      runStore(
+        'cardinal.store.metrics.activity_heartbeat.get_latest',
+        {},
+        () => {
+          const row = selectLatestActivityHeartbeatStmt.get() as JsonObject | null
+          if (!row) {
+            return null
+          }
+
+          let agentPid: number | null = null
+          try {
+            const metaRaw = asString(row.meta_json)
+            if (metaRaw) {
+              const meta = JSON.parse(metaRaw) as JsonObject
+              agentPid = asNumber(meta.agentPid)
+            }
+          } catch {
+            agentPid = null
+          }
+
+          const createdAt = asString(row.created_at)
+          if (!createdAt) {
+            return null
+          }
+
+          return {
+            createdAt,
+            agentPid,
+          }
+        },
+        'debug',
+      ),
+
+    insertActivityWindowEvent: (event: ActivityWindowEvent): void =>
+      runStore(
+        'cardinal.store.activity.window_event.insert',
+        {
+          event_id: event.eventId,
+          observed_at: event.observedAt,
+          app_name: event.appName,
+          owner_pid: event.ownerPid,
+        },
+        () => {
+          insertActivityWindowEventStmt.run(
+            event.eventId,
+            event.observedAt,
+            event.appName,
+            event.windowTitle,
+            event.bundleId,
+            event.ownerPid,
+            new Date().toISOString(),
+          )
+        },
+        'debug',
+      ),
+
+    listActivityWindowEvents: (args: {
+      fromIso: string
+      toIso: string
+      limit?: number
+    }): ActivityWindowEvent[] =>
+      runStore(
+        'cardinal.store.activity.window_events.list',
+        {
+          from_iso: args.fromIso,
+          to_iso: args.toIso,
+          limit: args.limit ?? 1000,
+        },
+        () => {
+          const rows = selectActivityWindowEventsStmt.all(
+            args.fromIso,
+            args.toIso,
+            Math.max(1, Math.min(args.limit ?? 1000, 10_000)),
+          ) as Array<JsonObject>
+
+          return rows
+            .map((row) => toActivityWindowEvent(row))
+            .filter((row): row is ActivityWindowEvent => row !== null)
+        },
+        'debug',
+      ),
+
+    upsertActivityScreenshotAsset: (asset: ActivityScreenshotAsset): void =>
+      runStore(
+        'cardinal.store.activity.screenshot_asset.upsert',
+        {
+          asset_id: asset.assetId,
+          sha256: asset.sha256,
+          bytes: asset.bytes,
+        },
+        () => {
+          upsertActivityScreenshotAssetStmt.run(
+            asset.assetId,
+            asset.sha256,
+            asset.storagePath,
+            asset.bytes,
+            asset.width,
+            asset.height,
+            asset.createdAt,
+          )
+        },
+        'debug',
+      ),
+
+    getActivityScreenshotAssetById: (assetId: string): ActivityScreenshotAsset | null =>
+      runStore(
+        'cardinal.store.activity.screenshot_asset.get',
+        {
+          asset_id: assetId,
+        },
+        () =>
+          toActivityScreenshotAsset(
+            selectActivityScreenshotAssetByIdStmt.get(assetId) as JsonValue,
+          ),
+        'debug',
+      ),
+
+    insertActivityScreenshotFrame: (frame: ActivityScreenshotFrame): void =>
+      runStore(
+        'cardinal.store.activity.screenshot_frame.insert',
+        {
+          frame_id: frame.frameId,
+          observed_at: frame.observedAt,
+          asset_id: frame.assetId,
+        },
+        () => {
+          insertActivityScreenshotFrameStmt.run(
+            frame.frameId,
+            frame.observedAt,
+            frame.assetId,
+            new Date().toISOString(),
+          )
+        },
+        'debug',
+      ),
+
+    listActivityScreenshotFrames: (args: {
+      fromIso: string
+      toIso: string
+      limit?: number
+    }): ActivityScreenshotFrame[] =>
+      runStore(
+        'cardinal.store.activity.screenshot_frames.list',
+        {
+          from_iso: args.fromIso,
+          to_iso: args.toIso,
+          limit: args.limit ?? 1000,
+        },
+        () => {
+          const rows = selectActivityScreenshotFramesStmt.all(
+            args.fromIso,
+            args.toIso,
+            Math.max(1, Math.min(args.limit ?? 1000, 10_000)),
+          ) as Array<JsonObject>
+          return rows
+            .map((row) => toActivityScreenshotFrame(row))
+            .filter((row): row is ActivityScreenshotFrame => row !== null)
         },
         'debug',
       ),

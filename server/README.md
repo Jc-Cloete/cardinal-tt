@@ -20,6 +20,7 @@ bun run typecheck
 - `PORT` (default `4000`)
 - `DATA_ROOT` (default `~/.codex/sessions` when present)
 - `CACHE_DB_PATH` (sqlite path used by shared cardinal store + session cache)
+- `CARDINAL_ACTIVITY_DATA_DIR` (root used to validate/serve stored activity screenshots)
 - `CONVERSATION_BREAK_LIMIT` (default `10`)
 - `JIRA_BASE_URL` (example: `https://your-org.atlassian.net`)
 - `JIRA_AUTH_TOKEN` (preferred bearer auth) OR:
@@ -72,6 +73,13 @@ CardinalDiff:
 - `GET /api/cardinal/diff?...`
 - `GET /api/cardinal/events?...`
 - `GET /api/cardinal/heartbeat`
+
+Activity:
+
+- `GET /api/activity/window-events?from=...&to=...&limit=...`
+- `GET /api/activity/screenshots?from=...&to=...&limit=...`
+- `GET /api/activity/screenshots/:assetId`
+- `GET /api/activity/heartbeat`
 
 Jira:
 

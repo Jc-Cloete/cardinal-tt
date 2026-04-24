@@ -7,6 +7,7 @@ Monorepo for exploring Codex session data and tracking local project filesystem 
 - `client`: React + Vite UI for conversation exploration, timeline visualization, and CardinalDiff views.
 - `server`: Express API for browsing session files, cache-backed parsing, and CardinalDiff API adapters.
 - `cardinal-diff`: macOS background service + CLI that watches projects with FSEvents and writes immutable commits.
+- `cardinal-activity`: macOS background service + CLI that records active-window events and periodic screenshots.
 - `cardinal-store`: shared SQLite schema, types, and queries used by both `server` and `cardinal-diff`.
 - `cardinal-observability`: shared structured wide-event logging package used across workspaces.
 - `docs`: product/engineering specs.
@@ -16,6 +17,7 @@ Module documentation:
 - `client/README.md`
 - `server/README.md`
 - `cardinal-diff/README.md`
+- `cardinal-activity/README.md`
 - `cardinal-store/README.md`
 - `cardinal-observability/README.md`
 - `docs/README.md`
@@ -26,6 +28,7 @@ Core specs:
 - `docs/specs/server.spec.md`
 - `docs/specs/client.spec.md`
 - `docs/specs/cardinal_diff.spec.md`
+- `docs/specs/cardinal_activity.spec.md`
 
 ## Bun Workspace
 
@@ -49,6 +52,7 @@ Run a single workspace:
 bun run dev:server
 bun run dev:client
 bun run dev:diff
+bun run dev:activity
 ```
 
 Run strict type checks:
@@ -84,6 +88,7 @@ Common variables:
 - CardinalDiff project tracking controls in preview modal.
 - CardinalDiff heartbeat health indicator.
 - Cardinal events page with date/time range filtering.
+- Activity scrubber page for active-window + screenshot playback by day/time range.
 - Jira workbench page (projects, tickets, comments, status transitions, ticket creation).
 - Settings page for Jira defaults (default project, default status filters, default assignee filters).
 - Searchable multi-select dropdowns for Jira status/assignee filtering.
