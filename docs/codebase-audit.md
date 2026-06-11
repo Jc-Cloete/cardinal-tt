@@ -18,7 +18,7 @@ The current strongest signals are:
 - Package boundary enforcement through `scripts/architecture.ts`.
 - Spec-to-test enforcement through `scripts/spec-enforcement.ts`.
 - Documentation structure/link enforcement through `scripts/docs-check.ts`.
-- CI workflow prepared to run `bun install --frozen-lockfile` and `bun run check`.
+- CI workflow prepared to run `bun install --frozen-lockfile` and `bun run check` on macOS.
 
 Overall architectural rating: **A-**
 
@@ -36,7 +36,7 @@ Automated anti-drift rating: **A-**
 | Specs are tied to tests through stable requirement IDs. | `docs/specs/*.spec.md`, `scripts/spec-enforcement.ts`. | High |
 | Server local-origin security is tested. | `server/src/security.ts`, `server/src/__tests__/security.test.ts`, `server/src/__tests__/api-contract.spec.ts`. | High |
 | Shared persistence prevents writer/reader schema drift. | `cardinal-store/src/db.ts`, workspace imports from agents/server. | High |
-| CI exists for the full quality gate. | `.github/workflows/ci.yml`. | High |
+| CI exists for the full quality gate on a macOS runner. | `.github/workflows/ci.yml`. | High |
 
 ## Strengths
 

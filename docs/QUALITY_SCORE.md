@@ -22,7 +22,7 @@ last-reviewed: 2026-06-11
 | Persistence | 4 | Shared SQLite schema and typed store APIs centralize ownership. | Store implementation remains dense. | Split only around real change pressure. |
 | Observability | 4 | Shared wide-event logger with context and error normalization. | No central log viewer in repo. | Keep event names stable and documented in runtime code. |
 | Documentation | 4 | Canonical docs map, specs, and docs check exist. | Semantic drift detection is limited. | Add high-confidence drift checks incrementally. |
-| CI readiness | 4 | GitHub Actions workflow runs the full local gate. | CI depends on Bun and platform-neutral tests. | Keep macOS-only runtime behavior mocked or unit-scoped. |
+| CI readiness | 4 | GitHub Actions workflow runs the full local gate on macOS. | CI uses macOS because `cardinal-diff` depends on FSEvents. | Keep non-macOS assumptions out of the default gate unless the watcher is abstracted. |
 
 ## Current Quality Gate
 
