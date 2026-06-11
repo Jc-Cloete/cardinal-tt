@@ -1,73 +1,50 @@
-# docs
+# Documentation
 
-Project specifications and design artifacts.
+Status: Verified
+last-reviewed: 2026-06-11
 
-## Contents
+This directory is the source of truth for product behavior, architecture support docs, quality expectations, reliability, and security.
 
-- `docs/specs/cardinal_store.spec.md`
-  - Source-of-truth spec for the shared DB/schema/query layer used by server + cardinal-diff.
-- `docs/specs/server.spec.md`
-  - Source-of-truth spec for API behavior, session parsing/filtering, and cardinal adapters.
-- `docs/specs/client.spec.md`
-  - Source-of-truth spec for frontend UX/state/timeline behavior and cardinal integrations.
-- `docs/specs/cardinal_diff.spec.md`
-  - Production-target spec for CardinalDiff watcher/storage/CLI behavior.
-- `docs/specs/cardinal_activity.spec.md`
-  - Source-of-truth spec for window/screenshot activity tracking service behavior.
-- `docs/security.md`
-  - Security posture for local-only server exposure, file/path boundaries, and mechanical enforcement.
+## Core Navigation
 
-## Usage
+| Document | Status | Purpose |
+| --- | --- | --- |
+| [../ARCHITECTURE.md](../ARCHITECTURE.md) | Verified | System boundaries, package layering, runtime entrypoints, and persistence ownership. |
+| [product-specs/index.md](product-specs/index.md) | Verified | Index for behavior specs and requirement IDs. |
+| [design-docs/index.md](design-docs/index.md) | Verified | Design rationale and operating principles. |
+| [QUALITY_SCORE.md](QUALITY_SCORE.md) | Verified | Current quality assessment and important gaps. |
+| [RELIABILITY.md](RELIABILITY.md) | Verified | Local reliability model and operational assumptions. |
+| [SECURITY.md](SECURITY.md) | Verified | Local-only security posture and publish-safety rules. |
+| [FRONTEND.md](FRONTEND.md) | Verified | Frontend conventions and UX constraints. |
+| [DESIGN.md](DESIGN.md) | Verified | Product/design principles for local workflow tooling. |
+| [PLANS.md](PLANS.md) | Verified | Planning conventions and plan locations. |
 
-When implementing features, treat specs here as product requirements and use workspace READMEs for implementation details.
+## Existing Specs
+
+The package-level specs remain in [specs/](specs/) and are indexed from [product-specs/index.md](product-specs/index.md).
+
+Specs declare stable `SPEC-*` IDs. Tests cover those IDs with `@spec` comments, and `bun run specs:check` fails on missing, duplicated, or unknown IDs.
 
 ## Quality Gates
 
-Local quality checks:
+Run the full local gate:
 
 ```bash
 bun run check
 ```
 
-Repository-wide lint/format check:
+Focused documentation check:
 
 ```bash
-bun run lint
+bun run docs:check
 ```
 
-Root lint is a single Biome pass over the repository. Workspace `lint` scripts are retained for targeted
-package checks only, so the root command does not repeat the same Biome work per workspace.
+The docs check validates required canonical files and local Markdown links. Keep all repository documentation links relative.
 
-Coverage visibility and thresholds:
+## Documentation Rules
 
-```bash
-bun run test:coverage
-```
-
-The coverage gate is implemented in `scripts/coverage.ts`. It runs Bun coverage for `server`, `client`, `cardinal-diff`, `cardinal-store`, and `cardinal-activity`, then fails if workspace function or line coverage drops below the configured thresholds.
-
-Architecture boundary enforcement:
-
-```bash
-bun run architecture:check
-```
-
-The architecture gate is implemented in `scripts/architecture.ts`. It scans TypeScript imports and fails on undeclared local workspace dependencies or relative imports that cross workspace boundaries.
-
-Spec-to-test enforcement:
-
-```bash
-bun run specs:check
-```
-
-The spec gate is implemented in `scripts/spec-enforcement.ts`. Specs in `docs/specs/*.spec.md` declare stable `SPEC-*` IDs, and tests must reference covered requirements with `@spec SPEC-*` comments. The gate fails on missing test references, unknown test references, or duplicated spec IDs.
-
-Workspace docs to keep in sync with specs:
-
-- `README.md`
-- `client/README.md`
-- `server/README.md`
-- `cardinal-diff/README.md`
-- `cardinal-activity/README.md`
-- `cardinal-store/README.md`
-- `cardinal-observability/README.md`
+- Keep [../AGENTS.md](../AGENTS.md) concise and link out to deeper docs.
+- Keep behavioral claims tied to code, specs, or tests.
+- Mark uncertain claims explicitly instead of presenting them as verified.
+- Update this index when adding new canonical docs.
+- Do not commit local machine paths, credentials, cache paths with personal data, screenshots, or SQLite databases.

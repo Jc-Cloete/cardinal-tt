@@ -10,14 +10,14 @@ describe('session-parser', () => {
   // @spec SPEC-SERVER-SEGMENTS
   it('parses timestamps, project cwd, and filtered content', () => {
     const content = [
-      '{"timestamp":"2026-02-20T10:00:00.000Z","type":"session_meta","payload":{"cwd":"/Users/me/app"}}',
+      '{"timestamp":"2026-02-20T10:00:00.000Z","type":"session_meta","payload":{"cwd":"/workspace/app"}}',
       '{"timestamp":"2026-02-20T10:01:00.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"hello"}]}}',
       'not-json',
       '{"timestamp":"2026-02-20T10:02:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi"}]}}',
     ].join('\n')
 
     const parsed = parseSessionFileContent(content)
-    expect(parsed.projectDir).toBe('/Users/me/app')
+    expect(parsed.projectDir).toBe('/workspace/app')
     expect(parsed.timestampsMs).toHaveLength(3)
     expect(parsed.filteredContent.includes('session_meta')).toBe(false)
     expect(parsed.filteredContent.includes('"role":"user"')).toBe(true)
@@ -57,7 +57,7 @@ describe('session-parser', () => {
       fileHash: 'abc',
       sizeBytes: 10,
       modifiedAt: '2026-02-20T10:10:00.000Z',
-      projectDir: '/Users/me/app',
+      projectDir: '/workspace/app',
       timestampsMs: [
         Date.parse('2026-02-20T10:00:00.000Z'),
         Date.parse('2026-02-20T10:03:00.000Z'),
@@ -68,6 +68,6 @@ describe('session-parser', () => {
     const summary = toSessionSummary(session, 10)
     expect(summary.startedAt).toBe('2026-02-20T10:00:00.000Z')
     expect(summary.endedAt).toBe('2026-02-20T10:03:00.000Z')
-    expect(summary.projectDir).toBe('/Users/me/app')
+    expect(summary.projectDir).toBe('/workspace/app')
   })
 })

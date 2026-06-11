@@ -27,7 +27,7 @@ const timelineModel: TimelineModel = {
         {
           name: 'chat-a.jsonl',
           relativePath: '2026/02/21/chat-a.jsonl',
-          projectDir: '/Users/me/code/cardinal-tt',
+          projectDir: '/workspace/code/cardinal-tt',
           fileIndex: 0,
           conversationIndex: 1,
           segmentIndex: 0,

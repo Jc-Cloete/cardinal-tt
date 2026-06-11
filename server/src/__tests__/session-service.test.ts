@@ -45,7 +45,7 @@ describe('session-service day overlap selection', () => {
       fs.mkdirSync(day21, { recursive: true })
       fs.mkdirSync(day22, { recursive: true })
 
-      createSessionFile(path.join(day20, 'chat-a.jsonl'), '/Users/me/project-a', [
+      createSessionFile(path.join(day20, 'chat-a.jsonl'), '/workspace/project-a', [
         '2026-02-20T23:50:00.000Z',
         '2026-02-21T00:10:00.000Z',
         '2026-02-22T00:05:00.000Z',
@@ -77,7 +77,7 @@ describe('session-service day overlap selection', () => {
       fs.mkdirSync(day20, { recursive: true })
       fs.mkdirSync(day21, { recursive: true })
 
-      createSessionFile(path.join(day20, 'chat-gap.jsonl'), '/Users/me/project-b', [
+      createSessionFile(path.join(day20, 'chat-gap.jsonl'), '/workspace/project-b', [
         '2026-02-20T09:00:00.000Z',
         '2026-02-22T09:00:00.000Z',
       ])

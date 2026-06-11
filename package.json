@@ -26,7 +26,8 @@
     "test:coverage": "bun run scripts/coverage.ts",
     "architecture:check": "bun run scripts/architecture.ts",
     "specs:check": "bun run scripts/spec-enforcement.ts",
-    "check": "bun run biome:check && bun run typecheck && bun run test && bun run test:coverage && bun run architecture:check && bun run specs:check"
+    "docs:check": "bun run scripts/docs-check.ts",
+    "check": "bun run biome:check && bun run typecheck && bun run test && bun run test:coverage && bun run architecture:check && bun run specs:check && bun run docs:check"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",

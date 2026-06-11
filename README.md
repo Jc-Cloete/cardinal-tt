@@ -1,46 +1,71 @@
 # cardinal-tt
 
-Monorepo for exploring Codex session data and tracking local project filesystem changes with CardinalDiff.
+`cardinal-tt` is a local-first TypeScript monorepo for inspecting Codex session history, tracking project filesystem changes, recording desktop activity context, and connecting that timeline to Jira work.
 
-## Architecture
+The project is intentionally built as more than a prototype UI. It demonstrates a full local tooling stack: a React/Vite client, an Express API, macOS background agents, shared SQLite persistence, structured observability, spec-linked tests, coverage thresholds, architecture boundary checks, and CI-ready quality gates.
 
-- `client`: React + Vite UI for conversation exploration, timeline visualization, and CardinalDiff views.
-- `server`: Express API for browsing session files, cache-backed parsing, and CardinalDiff API adapters.
-- `cardinal-diff`: macOS background service + CLI that watches projects with FSEvents and writes immutable commits.
-- `cardinal-activity`: macOS background service + CLI that records active-window events and periodic screenshots.
-- `cardinal-store`: shared SQLite schema, types, and queries used by both `server` and `cardinal-diff`.
-- `cardinal-observability`: shared structured wide-event logging package used across workspaces.
-- `docs`: product/engineering specs.
+## What It Does
 
-Module documentation:
+- Browses Codex session JSONL files by year, month, day, project, and conversation.
+- Renders conversations on a compressed vertical timeline with overlap lanes and cross-day segments.
+- Shows filtered message previews that remove internal/system records from the readable transcript.
+- Tracks configured project folders with CardinalDiff, a macOS FSEvents-backed change ledger.
+- Records active-window events and screenshot frames for local activity playback.
+- Provides a Jira workbench for projects, issues, comments, transitions, issue creation, and default filters.
+- Stores CardinalDiff, activity, and Jira cache state in one shared SQLite-backed persistence package.
 
-- `client/README.md`
-- `server/README.md`
-- `cardinal-diff/README.md`
-- `cardinal-activity/README.md`
-- `cardinal-store/README.md`
-- `cardinal-observability/README.md`
-- `docs/README.md`
+## Why The Architecture Matters
 
-Core specs:
+The codebase is split into small workspaces with explicit ownership:
 
-- `docs/specs/cardinal_store.spec.md`
-- `docs/specs/server.spec.md`
-- `docs/specs/client.spec.md`
-- `docs/specs/cardinal_diff.spec.md`
-- `docs/specs/cardinal_activity.spec.md`
+| Workspace | Responsibility |
+| --- | --- |
+| `client` | React + Vite UI for explorer, activity, CardinalDiff, Jira, settings, and notifications. |
+| `server` | Express API for session parsing, cache-backed reads, CardinalDiff adapters, activity APIs, and Jira workflows. |
+| `cardinal-diff` | macOS background service and CLI for filesystem change tracking. |
+| `cardinal-activity` | macOS activity tracker for active-window events and screenshot frame capture. |
+| `cardinal-store` | Shared SQLite schema, migrations, typed queries, and repair routines. |
+| `cardinal-observability` | Shared structured wide-event logging. |
 
-## Bun Workspace
+The package boundaries are mechanically enforced by `scripts/architecture.ts`; relative imports cannot cross workspace boundaries, and only declared local package dependencies are allowed.
 
-This repo is a Bun workspace (`workspaces` in root `package.json`).
+## Quality Model
 
-Install:
+The repository uses a single local quality gate:
+
+```bash
+bun run check
+```
+
+That command runs:
+
+- Biome formatting/linting with warnings treated as errors.
+- Strict TypeScript checks for each workspace.
+- Unit and behavior tests across server, client, agents, store, and scripts.
+- Coverage threshold checks via `scripts/coverage.ts`.
+- Workspace architecture boundary checks via `scripts/architecture.ts`.
+- Spec-to-test coverage checks via `scripts/spec-enforcement.ts`.
+- Documentation structure and Markdown link checks via `scripts/docs-check.ts`.
+
+Coverage thresholds are currently:
+
+| Workspace | Function Coverage | Line Coverage |
+| --- | ---: | ---: |
+| `server` | 85% | 85% |
+| `client` | 90% | 90% |
+| `cardinal-diff` | 70% | 70% |
+| `cardinal-store` | 90% | 90% |
+| `cardinal-activity` | 20% | 40% |
+
+## Run Locally
+
+Install dependencies:
 
 ```bash
 bun install
 ```
 
-Run all services:
+Run all development services:
 
 ```bash
 bun run dev
@@ -55,123 +80,57 @@ bun run dev:diff
 bun run dev:activity
 ```
 
-Run strict type checks:
-
-```bash
-bun run typecheck
-```
-
-Run the repository-wide lint/format gate:
+Useful checks:
 
 ```bash
 bun run lint
-```
-
-Run the full local quality gate:
-
-```bash
-bun run check
-```
-
-Run coverage visibility and threshold checks:
-
-```bash
+bun run typecheck
+bun run test
 bun run test:coverage
-```
-
-Run workspace architecture boundary checks:
-
-```bash
 bun run architecture:check
-```
-
-Run spec-to-test enforcement:
-
-```bash
 bun run specs:check
+bun run docs:check
 ```
 
-Current coverage thresholds are enforced per workspace by `scripts/coverage.ts`:
+## Runtime Data And Privacy
 
-- `server`: 85% functions, 85% lines
-- `client`: 90% functions, 90% lines
-- `cardinal-diff`: 70% functions, 70% lines
-- `cardinal-store`: 90% functions, 90% lines
-- `cardinal-activity`: 20% functions, 40% lines
+This is local desktop tooling. The server binds to loopback by default and rejects non-local browser origins before route handling.
 
-Architecture boundaries are enforced by `scripts/architecture.ts`:
+Default local data locations:
 
-- `client` may import `cardinal-observability`.
-- `server` may import `cardinal-observability` and `cardinal-store`.
-- `cardinal-diff` may import `cardinal-observability` and `cardinal-store`.
-- `cardinal-activity` may import `cardinal-observability` and `cardinal-store`.
-- `cardinal-store` may import `cardinal-observability`.
-- `cardinal-observability` may not import local workspaces.
-- Relative imports may not cross from one workspace into another.
+- Session source root: `~/.codex/sessions`, override with `DATA_ROOT`.
+- CardinalDiff storage: `~/.cardinal-diff/index/cardinaldiff.sqlite`.
+- Activity screenshot storage: `~/.cardinal-activity`, override with `CARDINAL_ACTIVITY_DATA_DIR`.
+- Server cache DB path: override with `CACHE_DB_PATH`.
 
-Spec IDs are enforced by `scripts/spec-enforcement.ts`:
+Optional Jira integration uses environment variables:
 
-- Requirements in `docs/specs/*.spec.md` use stable `SPEC-*` IDs.
-- Tests reference covered requirements with `@spec SPEC-*` comments.
-- `bun run specs:check` fails when a documented ID has no test reference, a test references an unknown ID, or a spec ID appears in more than one spec document.
+- `JIRA_BASE_URL`
+- `JIRA_AUTH_TOKEN`, or `JIRA_EMAIL` + `JIRA_API_TOKEN`
+- `JIRA_PROJECTS_CACHE_TTL_MS`
+- `JIRA_ISSUES_CACHE_TTL_MS`
 
-Root `bun run lint` is intentionally a single repository-wide Biome pass. Workspace `lint` scripts remain
-available for targeted package checks, but the root command avoids rechecking the same files multiple times.
+Do not commit `.env` files or local SQLite/cache files. See [docs/SECURITY.md](docs/SECURITY.md) for the security posture.
 
-Reusable utility ownership:
+## Documentation Map
 
-- Client date/time parsing and display helpers live in `client/src/utils/date.ts`.
-- CardinalDiff path normalization lives in `cardinal-diff/src/path-utils.ts`.
-- Server JSON coercion helpers live in `server/src/utils/json.ts`.
-- Script path normalization lives in `scripts/utils/path.ts`.
+- [AGENTS.md](AGENTS.md): quick navigation and contributor/agent working rules.
+- [ARCHITECTURE.md](ARCHITECTURE.md): system boundaries, runtime entrypoints, and package layering.
+- [docs/README.md](docs/README.md): documentation index.
+- [docs/product-specs/index.md](docs/product-specs/index.md): product and behavior specs.
+- [docs/design-docs/index.md](docs/design-docs/index.md): design rationale and operating principles.
+- [docs/QUALITY_SCORE.md](docs/QUALITY_SCORE.md): current quality assessment and gaps.
+- [docs/RELIABILITY.md](docs/RELIABILITY.md): reliability model and operational assumptions.
+- [docs/SECURITY.md](docs/SECURITY.md): local-only security posture and publish-safety expectations.
 
-## Runtime Data Paths
+Workspace READMEs:
 
-- Session source root: `~/.codex/sessions` by default, override with `DATA_ROOT`.
-- Cardinal storage: `~/.cardinal-diff/index/cardinaldiff.sqlite` by default.
-- Server cache DB path can be overridden with `CACHE_DB_PATH`.
-
-## Environment
-
-Common variables:
-
-- `PORT` (server port, default `4000`)
-- `HOST` (server bind host, default `127.0.0.1`)
-- `DATA_ROOT` (session source root)
-- `CACHE_DB_PATH` (sqlite path for cache/cardinal data)
-- `CONVERSATION_BREAK_LIMIT` (minutes, default `10`)
-- `JIRA_BASE_URL`, plus auth (`JIRA_AUTH_TOKEN` or `JIRA_EMAIL` + `JIRA_API_TOKEN`)
-- `JIRA_PROJECTS_CACHE_TTL_MS`, `JIRA_ISSUES_CACHE_TTL_MS`
-
-Security posture:
-
-- The server is local-first and binds to loopback by default.
-- Browser origins are limited to `localhost`, `127.0.0.1`, and `::1`; remote origins receive `403`.
-- The detailed posture is documented in `docs/security.md`.
-
-## Current Feature Set
-
-- Browse sessions by year/month/day/project.
-- Show cross-day conversations on each day timeline where they have message activity.
-- Filtered message preview (developer + internal/system event filtering).
-- Vertical timeline with idle-gap compression and overlap lanes.
-- Conversation segments based on configurable inactivity breaks.
-- CardinalDiff project tracking controls in preview modal.
-- CardinalDiff heartbeat health indicator.
-- Cardinal events page with date/time range filtering.
-- Activity scrubber page for active-window + screenshot playback by day/time range.
-- Jira workbench page (projects, tickets, comments, status transitions, ticket creation).
-- Settings page for Jira defaults (default project, default status filters, default assignee filters).
-- Searchable multi-select dropdowns for Jira status/assignee filtering.
-- Global top-right toast notifications for user-triggered success/error/info/warning feedback.
-- Force-refresh option to bypass cached session parsing.
-- CardinalDiff scans that honor both `.cardinaldiffignore` and layered `.gitignore` rules.
-
-Jira caching/filter options behavior:
-
-- Server exposes `GET /api/jira/filter-options` that returns projects plus distinct status/assignee options.
-- Filter options are sourced from cache when possible and hydrated from remote Jira when stale/empty/forced.
-- Jira issue list loading in the client guards against stale in-flight responses when switching projects quickly.
+- [client/README.md](client/README.md)
+- [server/README.md](server/README.md)
+- [cardinal-diff/README.md](cardinal-diff/README.md)
+- [cardinal-activity/README.md](cardinal-activity/README.md)
+- [cardinal-store/README.md](cardinal-store/README.md)
+- [cardinal-observability/README.md](cardinal-observability/README.md)
 
 ## CardinalDiff Maintenance
 
@@ -182,14 +141,14 @@ cd cardinal-diff
 bun run start projects list
 ```
 
-Reprocess one tracked project (rebuilds index snapshot and clears stale history for that project):
+Reprocess one tracked project:
 
 ```bash
 cd cardinal-diff
 bun run start projects reprocess <project_id>
 ```
 
-If the agent is currently active and you intentionally want to reprocess anyway:
+If the agent is active and you intentionally want to reprocess anyway:
 
 ```bash
 cd cardinal-diff

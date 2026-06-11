@@ -30,9 +30,9 @@ describe('client timeline builder', () => {
 
   it('creates overlap lanes and splits idle gaps into separate sections', () => {
     const files: SessionFile[] = [
-      makeSession('a', '/Users/me/a', '2026-02-20T08:00:00.000Z', '2026-02-20T08:20:00.000Z'),
-      makeSession('b', '/Users/me/b', '2026-02-20T08:05:00.000Z', '2026-02-20T08:25:00.000Z'),
-      makeSession('c', '/Users/me/c', '2026-02-20T12:00:00.000Z', '2026-02-20T12:05:00.000Z'),
+      makeSession('a', '/workspace/a', '2026-02-20T08:00:00.000Z', '2026-02-20T08:20:00.000Z'),
+      makeSession('b', '/workspace/b', '2026-02-20T08:05:00.000Z', '2026-02-20T08:25:00.000Z'),
+      makeSession('c', '/workspace/c', '2026-02-20T12:00:00.000Z', '2026-02-20T12:05:00.000Z'),
     ]
 
     const model = buildCompressedTimeline(files, '2026', '02', '20', 10)
@@ -46,7 +46,7 @@ describe('client timeline builder', () => {
     const files: SessionFile[] = [
       makeSession(
         'session-1',
-        '/Users/me/proj',
+        '/workspace/proj',
         '2026-02-20T23:55:00.000Z',
         '2026-02-21T00:20:00.000Z',
         [

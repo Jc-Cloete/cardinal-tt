@@ -9,16 +9,16 @@ describe('server filters', () => {
   it('extracts project cwd from session metadata', () => {
     const entry = toRecord({
       type: 'session_meta',
-      payload: { cwd: '  /Users/example/project  ' },
+      payload: { cwd: '  /workspace/example/project  ' },
     })
 
-    expect(readProjectDirFromSessionMeta(entry)).toBe('/Users/example/project')
+    expect(readProjectDirFromSessionMeta(entry)).toBe('/workspace/example/project')
   })
 
   it('returns null for non-session_meta entries', () => {
     const entry = toRecord({
       type: 'response_item',
-      payload: { cwd: '/Users/example/project' },
+      payload: { cwd: '/workspace/example/project' },
     })
     expect(readProjectDirFromSessionMeta(entry)).toBeNull()
   })

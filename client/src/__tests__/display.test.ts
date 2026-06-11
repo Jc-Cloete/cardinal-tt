@@ -7,7 +7,7 @@ describe('client display utils', () => {
   it('formats project labels for known, unknown, and all-project variants', () => {
     expect(getProjectDisplayName(ALL_PROJECTS)).toBe('All projects')
     expect(getProjectDisplayName(UNKNOWN_PROJECT)).toBe('Unknown project')
-    expect(getProjectDisplayName('/Users/me/code/cardinal-tt/')).toBe('cardinal-tt')
+    expect(getProjectDisplayName('/workspace/code/cardinal-tt/')).toBe('cardinal-tt')
   })
 
   it('maps role labels for user/assistant and fallback roles', () => {

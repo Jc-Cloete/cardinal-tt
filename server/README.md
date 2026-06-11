@@ -41,7 +41,7 @@ The server is local-first desktop tooling:
 - remote browser origins receive `403`
 - requests without an `Origin` header remain allowed for local CLI tooling and tests
 
-See `docs/security.md` for the full posture.
+See `../docs/SECURITY.md` for the full posture.
 
 ## Source Layout
 
